@@ -49,4 +49,16 @@
         <item>175</item>
         <item>200</item>
     </string-array>
+    <string-array name="gr_trackpad_rotation_names" translatable="false">
+        <item>0°</item>
+        <item>90°</item>
+        <item>180°</item>
+        <item>270°</item>
+    </string-array>
+    <string-array name="gr_trackpad_rotation_values" translatable="false">
+        <item>0</item>
+        <item>90</item>
+        <item>180</item>
+        <item>270</item>
+    </string-array>
 </resources>

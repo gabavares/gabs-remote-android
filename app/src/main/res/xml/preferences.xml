@@ -159,6 +159,13 @@
             android:entries="@array/gr_touch_mode_names"
             android:entryValues="@array/gr_touch_mode_values"
             android:defaultValue="DIRETO" />
+        <ListPreference
+            android:key="gr_trackpad_rotation"
+            android:title="@string/gr_title_trackpad_rotation"
+            android:summary="%s"
+            android:entries="@array/gr_trackpad_rotation_names"
+            android:entryValues="@array/gr_trackpad_rotation_values"
+            android:defaultValue="90" />
         <CheckBoxPreference
             android:key="checkbox_mouse_nav_buttons"
             android:title="@string/title_checkbox_mouse_nav_buttons"

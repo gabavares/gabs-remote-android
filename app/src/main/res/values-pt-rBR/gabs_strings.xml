@@ -12,4 +12,5 @@
     <string name="gr_touch_so_caneta">Só caneta</string>
     <string name="gr_title_windows_scale">Escala do Windows na tela virtual</string>
     <string name="gr_windows_scale_keep">Não mudar</string>
+    <string name="gr_title_trackpad_rotation">Rotação do trackpad do teclado</string>
 </resources>

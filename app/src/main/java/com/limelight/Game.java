@@ -105,6 +105,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean gabsNativeTouchActive;
     private boolean gabsThreeFingerGesture;
     private String gabsHostAddress;
+    private int gabsTrackpadRotation = com.limelight.gabs.input.TrackpadRotation.DEFAULT;
     private com.limelight.gabs.latency.LatencyProbe gabsLatency;
     private long threeFingerDownTime = 0;
 
@@ -233,6 +234,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         gabsTouchMode = com.limelight.gabs.input.TouchMode.fromPreference(
                 android.preference.PreferenceManager.getDefaultSharedPreferences(this).getString(com.limelight.gabs.input.TouchMode.PREF, null));
         prefConfig.touchscreenTrackpad = gabsTouchMode == com.limelight.gabs.input.TouchMode.TRACKPAD;
+        gabsTrackpadRotation = com.limelight.gabs.input.TrackpadRotation.fromPreference(
+                android.preference.PreferenceManager.getDefaultSharedPreferences(this).getString(com.limelight.gabs.input.TrackpadRotation.PREF, null));
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
 
         // Enter landscape unless we're on a square screen
@@ -2163,6 +2166,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     // Send the deltas straight from the motion event
                     short deltaX = (short)inputCaptureProvider.getRelativeAxisX(event);
                     short deltaY = (short)inputCaptureProvider.getRelativeAxisY(event);
+
+                    // Gabs Remote: o trackpad do teclado do tablet chega girado; mouse não é afetado
+                    if (event.getSource() == InputDevice.SOURCE_TOUCHPAD && gabsTrackpadRotation != 0) {
+                        float[] fixed = com.limelight.gabs.input.TrackpadRotation.rotate(gabsTrackpadRotation, deltaX, deltaY);
+                        deltaX = (short) fixed[0];
+                        deltaY = (short) fixed[1];
+                    }
 
                     if (deltaX != 0 || deltaY != 0) {
                         if (prefConfig.absoluteMouseMode) {
