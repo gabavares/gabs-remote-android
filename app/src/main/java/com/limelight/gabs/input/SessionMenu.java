@@ -1,11 +1,13 @@
 package com.limelight.gabs.input;
 
-import android.content.Context;
+import android.app.Activity;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SubMenu;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.PopupMenu;
 
 /**
@@ -35,8 +37,21 @@ public class SessionMenu {
     private SessionMenu() {
     }
 
-    public static void show(Context context, View anchor, TouchMode current, Listener listener) {
-        PopupMenu popup = new PopupMenu(context, anchor, Gravity.CENTER);
+    /**
+     * Abre o menu numa âncora de 1 px no ponto (x, y) da tela (veja {@link MenuAnchor}).
+     */
+    public static void show(Activity activity, float x, float y, TouchMode current, Listener listener) {
+        ViewGroup root = activity.findViewById(android.R.id.content);
+        int[] origin = new int[2];
+        root.getLocationOnScreen(origin);
+        float[] p = MenuAnchor.place(new float[]{x - origin[0]}, new float[]{y - origin[1]}, root.getWidth(), root.getHeight());
+        View anchor = new View(activity);
+        root.addView(anchor, new FrameLayout.LayoutParams(1, 1));
+        anchor.setX(p[0]);
+        anchor.setY(p[1]);
+
+        PopupMenu popup = new PopupMenu(activity, anchor, Gravity.NO_GRAVITY);
+        popup.setOnDismissListener(menu -> root.removeView(anchor));
         Menu menu = popup.getMenu();
 
         menu.add(Menu.NONE, ID_KEYBOARD, 0, "Teclado");
@@ -72,6 +87,7 @@ public class SessionMenu {
                 default: return false;
             }
         });
-        popup.show();
+        // Mostra depois do layout da âncora.
+        anchor.post(popup::show);
     }
 }

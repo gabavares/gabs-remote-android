@@ -108,6 +108,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private int gabsTrackpadRotation = com.limelight.gabs.input.TrackpadRotation.DEFAULT;
     private com.limelight.gabs.latency.LatencyProbe gabsLatency;
     private long threeFingerDownTime = 0;
+    private float gabsMenuX, gabsMenuY;  // centro dos três dedos, na tela
 
     private static final int REFERENCE_HORIZ_RES = 1280;
     private static final int REFERENCE_VERT_RES = 720;
@@ -632,6 +633,17 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (action == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() == 3) {
             gabsThreeFingerGesture = true;
             threeFingerDownTime = now;
+            // A âncora do menu usa coordenadas da tela (as do evento são da view, que pode estar com zoom).
+            float[] xs = new float[3], ys = new float[3];
+            float offsetX = event.getRawX() - event.getX(), offsetY = event.getRawY() - event.getY();
+            for (int i = 0; i < 3; i++) {
+                boolean raw = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
+                xs[i] = raw ? event.getRawX(i) : event.getX(i) + offsetX;
+                ys[i] = raw ? event.getRawY(i) : event.getY(i) + offsetY;
+            }
+            float[] center = com.limelight.gabs.input.MenuAnchor.place(xs, ys, Integer.MAX_VALUE, Integer.MAX_VALUE);
+            gabsMenuX = center[0];
+            gabsMenuY = center[1];
             LimeLog.info("Gabs menu: tres dedos (modo " + gabsTouchMode + ")");
             gabsCancelNativeTouch();
             for (TouchContext aTouchContext : touchContextMap) {
@@ -769,7 +781,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void gabsShowSessionMenu() {
         LimeLog.info("Gabs menu: abrindo");
-        com.limelight.gabs.input.SessionMenu.show(this, streamView, gabsTouchMode, new com.limelight.gabs.input.SessionMenu.Listener() {
+        com.limelight.gabs.input.SessionMenu.show(this, gabsMenuX, gabsMenuY, gabsTouchMode, new com.limelight.gabs.input.SessionMenu.Listener() {
             @Override public void onToggleKeyboard() { toggleKeyboard(); }
             @Override public void onTouchModeSelected(com.limelight.gabs.input.TouchMode mode) { gabsSetTouchMode(mode); }
             @Override public void onResetZoom() { gabsZoom.reset(); gabsApplyZoom(); }
