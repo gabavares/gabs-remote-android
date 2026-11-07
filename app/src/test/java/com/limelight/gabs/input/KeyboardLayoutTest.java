@@ -27,4 +27,19 @@ public class KeyboardLayoutTest {
         assertNull(KeyboardLayout.launchParam("0001041G"));
         assertNull(KeyboardLayout.launchParam("pt-BR&x=1"));
     }
+
+    @Test
+    public void valorGravadoValidoFica() {
+        assertEquals("0", KeyboardLayout.fromPreference("0"));
+        assertEquals("00010416", KeyboardLayout.fromPreference("00010416"));
+        assertEquals("00000409", KeyboardLayout.fromPreference("00000409"));
+    }
+
+    @Test
+    public void semValorOuValorEstragadoVoltaAoPadrao() {
+        assertEquals(KeyboardLayout.DEFAULT, KeyboardLayout.fromPreference(null));
+        // O XML compilou "00010416" como o número 10416, e a tela de configurações gravou isso.
+        assertEquals(KeyboardLayout.DEFAULT, KeyboardLayout.fromPreference("10416"));
+        assertEquals(KeyboardLayout.DEFAULT, KeyboardLayout.fromPreference(""));
+    }
 }

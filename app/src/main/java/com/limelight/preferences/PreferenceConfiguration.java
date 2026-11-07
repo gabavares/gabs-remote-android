@@ -611,7 +611,12 @@ public class PreferenceConfiguration {
         config.displayProfile = com.limelight.gabs.display.DisplayProfile.fromPreference(
                 prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_PROFILE, null));
         config.windowsScale = prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_WINDOWS_SCALE, "150");
-        config.keyboardLayout = prefs.getString(com.limelight.gabs.input.KeyboardLayout.PREF_KEY, com.limelight.gabs.input.KeyboardLayout.DEFAULT);
+        String storedKeyboard = prefs.getString(com.limelight.gabs.input.KeyboardLayout.PREF_KEY, null);
+        config.keyboardLayout = com.limelight.gabs.input.KeyboardLayout.fromPreference(storedKeyboard);
+        if (storedKeyboard != null && !storedKeyboard.equals(config.keyboardLayout)) {
+            // Conserta o valor estragado, para a tela de configurações mostrar a opção certa
+            prefs.edit().putString(com.limelight.gabs.input.KeyboardLayout.PREF_KEY, config.keyboardLayout).apply();
+        }
         try {
             config.nativeScale = Integer.parseInt(prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_NATIVE_SCALE, "100"));
         } catch (NumberFormatException e) {

@@ -18,4 +18,6 @@
     <string name="gr_keyboard_layout_keep">Keep current</string>
     <string name="gr_keyboard_layout_abnt2">Portuguese (Brazil, ABNT2)</string>
     <string name="gr_keyboard_layout_us">English (US)</string>
+    <!-- Texto, não número: como número o "00010416" virava 10416 -->
+    <string name="gr_keyboard_layout_default" translatable="false">00010416</string>
 </resources>

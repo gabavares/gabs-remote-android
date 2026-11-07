@@ -172,7 +172,7 @@
             android:summary="%s"
             android:entries="@array/gr_keyboard_layout_names"
             android:entryValues="@array/gr_keyboard_layout_values"
-            android:defaultValue="00010416" />
+            android:defaultValue="@string/gr_keyboard_layout_default" />
         <CheckBoxPreference
             android:key="checkbox_mouse_nav_buttons"
             android:title="@string/title_checkbox_mouse_nav_buttons"
