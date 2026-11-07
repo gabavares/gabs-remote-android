@@ -23,6 +23,7 @@ import com.limelight.nvstream.StreamConfiguration;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
 import com.limelight.nvstream.http.NvHTTP;
+import com.limelight.nvstream.http.LimelightCryptoProvider;
 import com.limelight.nvstream.input.ControllerPacket;
 import com.limelight.nvstream.input.KeyboardPacket;
 import com.limelight.nvstream.input.MouseButtonPacket;
@@ -106,6 +107,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean gabsThreeFingerGesture;
     private String gabsHostAddress;
     private int gabsTrackpadRotation = com.limelight.gabs.input.TrackpadRotation.DEFAULT;
+    private com.limelight.gabs.input.TouchpadGestures gabsTouchpad;
+    private Runnable gabsQuitHostApp;  // encerra o app no host (Voltar, Desconectar); veja SessionExit
     private com.limelight.gabs.latency.LatencyProbe gabsLatency;
     private long threeFingerDownTime = 0;
     private float gabsMenuX, gabsMenuY;  // centro dos três dedos, na tela
@@ -513,6 +516,19 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         controllerHandler = new ControllerHandler(this, conn, this, prefConfig);
         keyboardTranslator = new KeyboardTranslator();
 
+        // Gabs Remote: fechar a sessão (Voltar, Desconectar) encerra o app no host e libera o PC na hora
+        final ComputerDetails.AddressTuple gabsAddress = new ComputerDetails.AddressTuple(host, port);
+        final X509Certificate gabsServerCert = serverCert;
+        final LimelightCryptoProvider gabsCrypto = PlatformBinding.getCryptoProvider(this);
+        gabsQuitHostApp = () -> new Thread(() -> {
+            try {
+                boolean quit = new NvHTTP(gabsAddress, httpsPort, uniqueId, gabsServerCert, gabsCrypto).quitApp();
+                LimeLog.info("Gabs Remote: app encerrado no host: " + quit);
+            } catch (Exception e) {
+                LimeLog.warning("Gabs Remote: não foi possível encerrar o app no host: " + e);
+            }
+        }).start();
+
         InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
         inputManager.registerInputDeviceListener(keyboardTranslator, null);
 
@@ -777,6 +793,43 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             if (vks[i] == 0x5B) modifiers &= ~KeyboardPacket.MODIFIER_META;
             conn.sendKeyboardInput((short) (0x8000 | vks[i]), KeyboardPacket.KEY_UP, modifiers, (byte) 0);
         }
+    }
+
+    /** Trackpad do teclado capturado: um dedo move, dois rolam, toque clica (TouchpadGestures). */
+    private void gabsHandleTouchpad(MotionEvent event) {
+        if (gabsTouchpad == null) {
+            gabsTouchpad = new com.limelight.gabs.input.TouchpadGestures(gabsTrackpadRotation, new com.limelight.gabs.input.TouchpadGestures.Output() {
+                @Override
+                public void move(int dx, int dy) {
+                    if (prefConfig.absoluteMouseMode) {
+                        conn.sendMouseMoveAsMousePosition((short) dx, (short) dy, (short) streamView.getWidth(), (short) streamView.getHeight());
+                    } else {
+                        conn.sendMouseMove((short) dx, (short) dy);
+                    }
+                }
+
+                @Override
+                public void scroll(int vertical, int horizontal) {
+                    if (vertical != 0) conn.sendMouseHighResScroll((short) vertical);
+                    if (horizontal != 0) conn.sendMouseHighResHScroll((short) horizontal);
+                }
+
+                @Override
+                public void button(int which, boolean down) {
+                    if (down) conn.sendMouseButtonDown((byte) which);
+                    else conn.sendMouseButtonUp((byte) which);
+                }
+            });
+        }
+        int n = event.getPointerCount();
+        int[] ids = new int[n];
+        float[] xs = new float[n], ys = new float[n];
+        for (int i = 0; i < n; i++) {
+            ids[i] = event.getPointerId(i);
+            xs[i] = event.getX(i);
+            ys[i] = event.getY(i);
+        }
+        gabsTouchpad.onTouch(event.getActionMasked(), event.getActionIndex(), event.getEventTime(), event.getButtonState(), ids, xs, ys);
     }
 
     private void gabsShowSessionMenu() {
@@ -1418,6 +1471,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
             displayedFailureDialog = true;
             stopConnection();
+
+            // Gabs Remote: em segundo plano o PC continua pronto; fechando a sessão, ele é liberado
+            if (gabsQuitHostApp != null && com.limelight.gabs.session.SessionExit.quitHostApp(isFinishing(), true)) {
+                gabsQuitHostApp.run();
+            }
 
             if (prefConfig.enableLatencyToast) {
                 int averageEndToEndLat = decoderRenderer.getAverageEndToEndLatency();
@@ -2175,6 +2233,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     return true;
                 }
 
+                // Gabs Remote: trackpad do teclado capturado = dedos crus; os gestos ficam com TouchpadGestures
+                if (event.getSource() == InputDevice.SOURCE_TOUCHPAD && inputCaptureProvider.eventHasRelativeMouseAxes(event)) {
+                    gabsHandleTouchpad(event);
+                    return true;
+                }
+
                 // Always update the position before sending any button events. If we're
                 // dealing with a stylus without hover support, our position might be
                 // significantly different than before.
@@ -2182,13 +2246,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     // Send the deltas straight from the motion event
                     short deltaX = (short)inputCaptureProvider.getRelativeAxisX(event);
                     short deltaY = (short)inputCaptureProvider.getRelativeAxisY(event);
-
-                    // Gabs Remote: o trackpad do teclado do tablet chega girado; mouse não é afetado
-                    if (event.getSource() == InputDevice.SOURCE_TOUCHPAD && gabsTrackpadRotation != 0) {
-                        float[] fixed = com.limelight.gabs.input.TrackpadRotation.rotate(gabsTrackpadRotation, deltaX, deltaY);
-                        deltaX = (short) fixed[0];
-                        deltaY = (short) fixed[1];
-                    }
 
                     if (deltaX != 0 || deltaY != 0) {
                         if (prefConfig.absoluteMouseMode) {
