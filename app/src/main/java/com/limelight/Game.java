@@ -104,6 +104,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private com.limelight.gabs.input.PenOnlyGestures gabsPenOnly;
     private boolean gabsNativeTouchActive;
     private boolean gabsThreeFingerGesture;
+    private String gabsHostAddress;
+    private com.limelight.gabs.latency.LatencyProbe gabsLatency;
     private long threeFingerDownTime = 0;
 
     private static final int REFERENCE_HORIZ_RES = 1280;
@@ -325,6 +327,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         pcName = Game.this.getIntent().getStringExtra(EXTRA_PC_NAME);
 
         String host = Game.this.getIntent().getStringExtra(EXTRA_HOST);
+        gabsHostAddress = host; // Gabs Remote: o medidor de latência fala com o marcador neste endereço
         int port = Game.this.getIntent().getIntExtra(EXTRA_PORT, NvHTTP.DEFAULT_HTTP_PORT);
         int httpsPort = Game.this.getIntent().getIntExtra(EXTRA_HTTPS_PORT, 0); // 0 is treated as unknown
         int appId = Game.this.getIntent().getIntExtra(EXTRA_APP_ID, StreamConfiguration.INVALID_APP_ID);
@@ -749,9 +752,68 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         });
     }
 
-    /** Medidor de latência (Task 9 do plano da fase 2). */
+    /** Medidor de latência (docs/latencia.md): precisa do marcador aberto no PC. */
     private void gabsStartLatency(boolean stamp) {
-        Toast.makeText(this, "Medidor de latência ainda não disponível", Toast.LENGTH_SHORT).show();
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            Toast.makeText(this, "O medidor precisa do Android 7 ou mais novo", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (gabsLatency != null && gabsLatency.isRunning()) {
+            Toast.makeText(this, "Já existe uma medição em andamento", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, stamp ? "Medindo pelo carimbo (10 s)..." : "Medindo pelo clique (40 amostras)...", Toast.LENGTH_SHORT).show();
+        gabsLatency = new com.limelight.gabs.latency.LatencyProbe(streamView, prefConfig.width, prefConfig.height, gabsHostAddress,
+                new com.limelight.gabs.latency.LatencyProbe.Session() {
+                    @Override
+                    public void sendF24() {
+                        // F24 (VK 0x87): o marcador alterna o quadrado a cada tecla
+                        conn.sendKeyboardInput((short) 0x8087, KeyboardPacket.KEY_DOWN, (byte) 0, (byte) 0);
+                        conn.sendKeyboardInput((short) 0x8087, KeyboardPacket.KEY_UP, (byte) 0, (byte) 0);
+                    }
+
+                    @Override
+                    public void onFinished(String mode, com.limelight.gabs.latency.LatencyStats stats, String error) {
+                        gabsShowLatencyResult(mode, stats, error);
+                    }
+                });
+        if (stamp) {
+            gabsLatency.startStamp();
+        } else {
+            gabsLatency.startClick();
+        }
+    }
+
+    private void gabsShowLatencyResult(String mode, com.limelight.gabs.latency.LatencyStats stats, String error) {
+        if (isFinishing()) {
+            return;
+        }
+        String msg;
+        if (error != null) {
+            msg = error;
+        } else {
+            String file = null;
+            try {
+                java.io.File dir = getExternalFilesDir(null);
+                String name = "latencia-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmm", Locale.ROOT).format(new java.util.Date()) + ".csv";
+                java.io.File out = new java.io.File(dir, name);
+                try (java.io.FileOutputStream fos = new java.io.FileOutputStream(out, true)) {
+                    fos.write(stats.toCsv(mode).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+                file = out.getName();
+            } catch (Exception e) {
+                LimeLog.warning("Gabs Remote: não foi possível gravar o CSV da latência: " + e);
+            }
+            msg = String.format(Locale.ROOT,
+                    "Amostras: %d (perdidas: %d)%nMédia: %.1f ms%np50: %.1f ms%np95: %.1f ms%nMáx: %.1f ms%s",
+                    stats.count(), stats.lost(), stats.avg(), stats.p50(), stats.p95(), stats.max(),
+                    file == null ? "" : "\n\nCSV: " + file);
+        }
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Latência — " + mode)
+                .setMessage(msg)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     private void setPreferredOrientationForCurrentDisplay() {
