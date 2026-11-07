@@ -96,6 +96,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     // Only 2 touches are supported
     private final TouchContext[] touchContextMap = new TouchContext[2];
+
+    // Gabs Remote: modo de toque, rejeição de palma, zoom local e menu da sessão
+    private final com.limelight.gabs.input.TouchModePolicy gabsTouchPolicy = new com.limelight.gabs.input.TouchModePolicy();
+    private final com.limelight.gabs.input.LocalZoom gabsZoom = new com.limelight.gabs.input.LocalZoom();
+    private com.limelight.gabs.input.TouchMode gabsTouchMode = com.limelight.gabs.input.TouchMode.DIRETO;
+    private com.limelight.gabs.input.PenOnlyGestures gabsPenOnly;
+    private boolean gabsNativeTouchActive;
+    private boolean gabsThreeFingerGesture;
     private long threeFingerDownTime = 0;
 
     private static final int REFERENCE_HORIZ_RES = 1280;
@@ -217,6 +225,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // Read the stream preferences
         prefConfig = PreferenceConfiguration.readPreferences(this);
+        // Gabs Remote: a resolução vem do perfil de tela (substitui a lista de resolução do upstream)
+        applyGabsDisplayProfile();
+        // Gabs Remote: modo de toque (o "touchscreen trackpad" do upstream passa a seguir o modo)
+        gabsTouchMode = com.limelight.gabs.input.TouchMode.fromPreference(
+                android.preference.PreferenceManager.getDefaultSharedPreferences(this).getString(com.limelight.gabs.input.TouchMode.PREF, null));
+        prefConfig.touchscreenTrackpad = gabsTouchMode == com.limelight.gabs.input.TouchMode.TRACKPAD;
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
 
         // Enter landscape unless we're on a square screen
@@ -465,6 +479,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         StreamConfiguration config = new StreamConfiguration.Builder()
                 .setResolution(prefConfig.width, prefConfig.height)
                 .setLaunchRefreshRate(prefConfig.fps)
+                .setGrDisplay(prefConfig.displayProfile.launchParam())
                 .setRefreshRate(chosenFrameRate)
                 .setApp(app)
                 .setBitrate(prefConfig.bitrate)
@@ -493,16 +508,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         inputManager.registerInputDeviceListener(keyboardTranslator, null);
 
         // Initialize touch contexts
-        for (int i = 0; i < touchContextMap.length; i++) {
-            if (!prefConfig.touchscreenTrackpad) {
-                touchContextMap[i] = new AbsoluteTouchContext(conn, i, streamView);
-            }
-            else {
-                touchContextMap[i] = new RelativeTouchContext(conn, i,
-                        REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
-                        streamView, prefConfig);
-            }
-        }
+        // Gabs Remote: extraído para gabsBuildTouchContexts(), que a troca de modo pelo menu reusa
+        gabsBuildTouchContexts();
+        gabsPenOnly = new com.limelight.gabs.input.PenOnlyGestures(gabsZoom, gabsPenOnlyHost);
 
         if (prefConfig.onscreenController) {
             // create virtual onscreen controller
@@ -533,6 +541,217 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         // The connection will be started when the surface gets created
         streamView.getHolder().addCallback(this);
+    }
+
+    /**
+     * Gabs Remote: troca a resolução da sessão pela do perfil de tela. O tamanho nativo vem do
+     * modo físico da tela (maior lado x menor lado).
+     */
+    private void applyGabsDisplayProfile() {
+        Display display = getWindowManager().getDefaultDisplay();
+        int nativeWidth, nativeHeight;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            nativeWidth = display.getMode().getPhysicalWidth();
+            nativeHeight = display.getMode().getPhysicalHeight();
+        } else {
+            nativeWidth = display.getWidth();
+            nativeHeight = display.getHeight();
+        }
+        int[] res = com.limelight.gabs.display.DisplayProfile.resolve(
+                prefConfig.displayProfile, prefConfig.nativeScale, nativeWidth, nativeHeight);
+        LimeLog.info("Gabs Remote: perfil " + prefConfig.displayProfile + " " + prefConfig.nativeScale +
+                "% -> " + res[0] + "x" + res[1] + " (tela " + nativeWidth + "x" + nativeHeight + ")");
+        prefConfig.width = res[0];
+        prefConfig.height = res[1];
+    }
+
+    // ===== Gabs Remote: modos de toque, zoom local e menu da sessão =====
+
+    /** Contextos de toque do upstream: absoluto (Direto sem toque nativo no host) ou relativo (Trackpad). */
+    private void gabsBuildTouchContexts() {
+        for (int i = 0; i < touchContextMap.length; i++) {
+            if (!prefConfig.touchscreenTrackpad) {
+                touchContextMap[i] = new AbsoluteTouchContext(conn, i, streamView);
+            }
+            else {
+                touchContextMap[i] = new RelativeTouchContext(conn, i,
+                        REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
+                        streamView, prefConfig);
+            }
+        }
+    }
+
+    /** Toque nativo cancelado no Windows (palma, três dedos ou cancelamento do Android). */
+    private void gabsCancelNativeTouch() {
+        if (gabsNativeTouchActive) {
+            conn.sendTouchEvent(MoonBridge.LI_TOUCH_EVENT_CANCEL_ALL, 0,
+                    0, 0, 0, 0, 0,
+                    MoonBridge.LI_ROT_UNKNOWN);
+            gabsNativeTouchActive = false;
+        }
+    }
+
+    /**
+     * Decide o destino de um evento de dedo. Devolve true quando o evento foi tratado aqui;
+     * false para seguir o caminho do upstream (contextos de toque).
+     */
+    private boolean gabsHandleFinger(View view, MotionEvent event) {
+        int action = event.getActionMasked();
+        long now = event.getEventTime();
+
+        // Três dedos: cancela o que estava em andamento e, se for um toque rápido, abre o menu.
+        if (action == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() == 3) {
+            gabsThreeFingerGesture = true;
+            threeFingerDownTime = now;
+            gabsCancelNativeTouch();
+            for (TouchContext aTouchContext : touchContextMap) {
+                aTouchContext.cancelTouch();
+            }
+            return true;
+        }
+        if (gabsThreeFingerGesture) {
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                gabsThreeFingerGesture = false;
+                boolean canceled = action == MotionEvent.ACTION_CANCEL ||
+                        (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && (event.getFlags() & MotionEvent.FLAG_CANCELED) != 0);
+                if (!canceled && now - threeFingerDownTime < THREE_FINGER_TAP_THRESHOLD) {
+                    gabsShowSessionMenu();
+                }
+                // O caminho do upstream não deve ver este toque como o "três dedos = teclado".
+                threeFingerDownTime = 0;
+            }
+            return true;
+        }
+
+        switch (gabsTouchPolicy.fingerAction(gabsTouchMode, event.getPointerCount(), now)) {
+            case DROP:
+                // Palma com a caneta perto, ou um dedo só no modo Só caneta: nada vai ao PC.
+                gabsCancelNativeTouch();
+                if (gabsTouchMode != com.limelight.gabs.input.TouchMode.SO_CANETA) {
+                    for (TouchContext aTouchContext : touchContextMap) {
+                        aTouchContext.cancelTouch();
+                    }
+                }
+                return true;
+            case GESTURE:
+                gabsPenOnly.onTouchEvent(event);
+                return true;
+            case NATIVE_TOUCH:
+                if (action == MotionEvent.ACTION_CANCEL ||
+                        (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && (event.getFlags() & MotionEvent.FLAG_CANCELED) != 0)) {
+                    // Toque cancelado pelo Android (gesto do sistema): o Windows não pode ficar com toque preso.
+                    gabsNativeTouchActive = true;
+                    gabsCancelNativeTouch();
+                    return true;
+                }
+                if (trySendTouchEvent(view, event)) {
+                    gabsNativeTouchActive = action != MotionEvent.ACTION_UP;
+                    return true;
+                }
+                // Host sem toque nativo: segue o toque absoluto do upstream.
+                return false;
+            case UPSTREAM_CONTEXT:
+            default:
+                return false;
+        }
+    }
+
+    /** Aplica o zoom local na view da sessão. */
+    private void gabsApplyZoom() {
+        float s = gabsZoom.scale();
+        float[] t = gabsZoom.translation(streamView.getWidth(), streamView.getHeight());
+        streamView.setScaleX(s);
+        streamView.setScaleY(s);
+        streamView.setTranslationX(t[0]);
+        streamView.setTranslationY(t[1]);
+    }
+
+    /** Origem da view da sessão na tela, sem o zoom: {x, y}. */
+    private float[] gabsStreamViewOrigin() {
+        int[] parent = new int[2];
+        ((View) streamView.getParent()).getLocationOnScreen(parent);
+        return new float[]{parent[0] + streamView.getLeft(), parent[1] + streamView.getTop()};
+    }
+
+    private final com.limelight.gabs.input.PenOnlyGestures.Host gabsPenOnlyHost = new com.limelight.gabs.input.PenOnlyGestures.Host() {
+        @Override
+        public void applyZoom() {
+            gabsApplyZoom();
+        }
+
+        @Override
+        public void scrollPc(float dy) {
+            conn.sendMouseHighResScroll((short) (dy * 2));
+        }
+
+        @Override
+        public void rightClickAt(float rawX, float rawY) {
+            // Ponto da tela -> ponto da imagem, desfazendo o zoom local.
+            float[] origin = gabsStreamViewOrigin();
+            int w = streamView.getWidth(), h = streamView.getHeight();
+            float s = gabsZoom.scale();
+            float[] t = gabsZoom.translation(w, h);
+            float x = w / 2f + (rawX - origin[0] - w / 2f - t[0]) / s;
+            float y = h / 2f + (rawY - origin[1] - h / 2f - t[1]) / s;
+            conn.sendMousePosition((short) x, (short) y, (short) w, (short) h);
+            conn.sendMouseButtonDown(MouseButtonPacket.BUTTON_RIGHT);
+            conn.sendMouseButtonUp(MouseButtonPacket.BUTTON_RIGHT);
+        }
+
+        @Override
+        public float[] viewOrigin() {
+            return gabsStreamViewOrigin();
+        }
+    };
+
+    private void gabsSetTouchMode(com.limelight.gabs.input.TouchMode mode) {
+        gabsCancelNativeTouch();
+        for (TouchContext aTouchContext : touchContextMap) {
+            aTouchContext.cancelTouch();
+        }
+        gabsTouchMode = mode;
+        android.preference.PreferenceManager.getDefaultSharedPreferences(this).edit()
+                .putString(com.limelight.gabs.input.TouchMode.PREF, mode.name()).apply();
+        prefConfig.touchscreenTrackpad = mode == com.limelight.gabs.input.TouchMode.TRACKPAD;
+        gabsBuildTouchContexts();
+        if (mode != com.limelight.gabs.input.TouchMode.SO_CANETA) {
+            // O zoom local é do modo Só caneta: nos outros o toque precisa cair no ponto certo da imagem.
+            gabsZoom.reset();
+            gabsApplyZoom();
+        }
+    }
+
+    /** Aperta e solta teclas do Windows (códigos VK) em sequência, soltando na ordem inversa. */
+    private void gabsSendKeyCombo(short... vks) {
+        byte modifiers = 0;
+        for (short vk : vks) {
+            conn.sendKeyboardInput((short) (0x8000 | vk), KeyboardPacket.KEY_DOWN, modifiers, (byte) 0);
+            if (vk == 0x12) modifiers |= KeyboardPacket.MODIFIER_ALT;
+            if (vk == 0x5B) modifiers |= KeyboardPacket.MODIFIER_META;
+        }
+        for (int i = vks.length - 1; i >= 0; i--) {
+            if (vks[i] == 0x12) modifiers &= ~KeyboardPacket.MODIFIER_ALT;
+            if (vks[i] == 0x5B) modifiers &= ~KeyboardPacket.MODIFIER_META;
+            conn.sendKeyboardInput((short) (0x8000 | vks[i]), KeyboardPacket.KEY_UP, modifiers, (byte) 0);
+        }
+    }
+
+    private void gabsShowSessionMenu() {
+        com.limelight.gabs.input.SessionMenu.show(this, streamView, gabsTouchMode, new com.limelight.gabs.input.SessionMenu.Listener() {
+            @Override public void onToggleKeyboard() { toggleKeyboard(); }
+            @Override public void onTouchModeSelected(com.limelight.gabs.input.TouchMode mode) { gabsSetTouchMode(mode); }
+            @Override public void onResetZoom() { gabsZoom.reset(); gabsApplyZoom(); }
+            @Override public void onMeasureLatencyClick() { gabsStartLatency(false); }
+            @Override public void onMeasureLatencyStamp() { gabsStartLatency(true); }
+            @Override public void onSendAltTab() { gabsSendKeyCombo((short) 0x12, (short) 0x09); }
+            @Override public void onSendWin() { gabsSendKeyCombo((short) 0x5B); }
+            @Override public void onDisconnect() { finish(); }
+        });
+    }
+
+    /** Medidor de latência (Task 9 do plano da fase 2). */
+    private void gabsStartLatency(boolean stamp) {
+        Toast.makeText(this, "Medidor de latência ainda não disponível", Toast.LENGTH_SHORT).show();
     }
 
     private void setPreferredOrientationForCurrentDisplay() {
@@ -1783,6 +2002,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // Returns true if the event was consumed
     // NB: View is only present if called from a view callback
     private boolean handleMotionEvent(View view, MotionEvent event) {
+        // Gabs Remote: todo evento de caneta (inclusive hover) alimenta a rejeição de palma
+        if (event.getPointerCount() >= 1 &&
+                (event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS || event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER)) {
+            gabsTouchPolicy.onPenEvent(event.getActionMasked(), event.getEventTime());
+        }
+
         // Pass through mouse/touch/joystick input if we're not grabbing
         if (!grabbedInput) {
             return false;
@@ -2010,6 +2235,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 else {
                     xOffset = 0.f;
                     yOffset = 0.f;
+                }
+
+                // Gabs Remote: modos de toque, rejeição de palma, gestos e menu de três dedos
+                if (gabsHandleFinger(view, event)) {
+                    return true;
                 }
 
                 int actionIndex = event.getActionIndex();

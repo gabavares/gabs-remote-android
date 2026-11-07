@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gabs Remote: listas das preferências próprias -->
+<resources>
+    <string-array name="gr_display_profile_names">
+        <item>@string/gr_profile_nativo</item>
+        <item>@string/gr_profile_espelhar</item>
+        <item>@string/gr_profile_fixo_1080</item>
+        <item>@string/gr_profile_fixo_720</item>
+    </string-array>
+    <string-array name="gr_display_profile_values" translatable="false">
+        <item>NATIVO</item>
+        <item>ESPELHAR</item>
+        <item>FIXO_1080</item>
+        <item>FIXO_720</item>
+    </string-array>
+    <string-array name="gr_native_scale_names" translatable="false">
+        <item>100%</item>
+        <item>67%</item>
+        <item>50%</item>
+    </string-array>
+    <string-array name="gr_native_scale_values" translatable="false">
+        <item>100</item>
+        <item>67</item>
+        <item>50</item>
+    </string-array>
+    <string-array name="gr_touch_mode_names">
+        <item>@string/gr_touch_direto</item>
+        <item>@string/gr_touch_trackpad</item>
+        <item>@string/gr_touch_so_caneta</item>
+    </string-array>
+    <string-array name="gr_touch_mode_values" translatable="false">
+        <item>DIRETO</item>
+        <item>TRACKPAD</item>
+        <item>SO_CANETA</item>
+    </string-array>
+</resources>

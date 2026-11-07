@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gabs Remote: textos próprios (a tradução pt-BR fica em values-pt-rBR/gabs_strings.xml) -->
+<resources>
+    <string name="gr_title_display_profile">Display profile</string>
+    <string name="gr_profile_nativo">Tablet native</string>
+    <string name="gr_profile_espelhar">Mirror monitor</string>
+    <string name="gr_profile_fixo_1080">Fixed 1080p</string>
+    <string name="gr_profile_fixo_720">Fixed 720p</string>
+    <string name="gr_title_native_scale">Native scale</string>
+    <string name="gr_title_touch_mode">Touch mode</string>
+    <string name="gr_touch_direto">Direct (Windows touch)</string>
+    <string name="gr_touch_trackpad">Trackpad</string>
+    <string name="gr_touch_so_caneta">Pen only</string>
+</resources>

@@ -18,6 +18,21 @@
             android:entries="@array/fps_names"
             android:entryValues="@array/fps_values"
             android:defaultValue="60" />
+        <!-- Gabs Remote: perfil de tela (grDisplay) e escala do nativo -->
+        <ListPreference
+            android:key="gr_display_profile"
+            android:title="@string/gr_title_display_profile"
+            android:summary="%s"
+            android:entries="@array/gr_display_profile_names"
+            android:entryValues="@array/gr_display_profile_values"
+            android:defaultValue="NATIVO" />
+        <ListPreference
+            android:key="gr_native_scale"
+            android:title="@string/gr_title_native_scale"
+            android:summary="%s"
+            android:entries="@array/gr_native_scale_names"
+            android:entryValues="@array/gr_native_scale_values"
+            android:defaultValue="100" />
         <com.limelight.preferences.SeekBarPreference
             android:key="seekbar_bitrate_kbps"
             android:dialogMessage="@string/summary_seekbar_bitrate"
@@ -129,11 +144,14 @@
     </PreferenceCategory>
     <PreferenceCategory android:title="@string/category_input_settings"
         android:key="category_input_settings">
-        <CheckBoxPreference
-            android:key="checkbox_touchscreen_trackpad"
-            android:title="@string/title_checkbox_touchscreen_trackpad"
-            android:summary="@string/summary_checkbox_touchscreen_trackpad"
-            android:defaultValue="true" />
+        <!-- Gabs Remote: o modo de toque substitui o "touchscreen trackpad" do upstream -->
+        <ListPreference
+            android:key="gr_touch_mode"
+            android:title="@string/gr_title_touch_mode"
+            android:summary="%s"
+            android:entries="@array/gr_touch_mode_names"
+            android:entryValues="@array/gr_touch_mode_values"
+            android:defaultValue="DIRETO" />
         <CheckBoxPreference
             android:key="checkbox_mouse_nav_buttons"
             android:title="@string/title_checkbox_mouse_nav_buttons"

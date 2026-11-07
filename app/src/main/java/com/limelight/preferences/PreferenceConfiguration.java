@@ -123,6 +123,9 @@ public class PreferenceConfiguration {
     public static final String RES_NATIVE = "Native";
 
     public int width, height, fps;
+    // Gabs Remote: perfil de tela (grDisplay) e escala do perfil nativo
+    public com.limelight.gabs.display.DisplayProfile displayProfile;
+    public int nativeScale;
     public int bitrate;
     public FormatOption videoFormat;
     public int deadzonePercentage;
@@ -601,6 +604,15 @@ public class PreferenceConfiguration {
         config.gamepadTouchpadAsMouse = prefs.getBoolean(GAMEPAD_TOUCHPAD_AS_MOUSE_PREF_STRING, DEFAULT_GAMEPAD_TOUCHPAD_AS_MOUSE);
         config.gamepadMotionSensors = prefs.getBoolean(GAMEPAD_MOTION_SENSORS_PREF_STRING, DEFAULT_GAMEPAD_MOTION_SENSORS);
         config.gamepadMotionSensorsFallbackToDevice = prefs.getBoolean(GAMEPAD_MOTION_FALLBACK_PREF_STRING, DEFAULT_GAMEPAD_MOTION_FALLBACK);
+
+        // Gabs Remote: perfil de tela e escala do nativo
+        config.displayProfile = com.limelight.gabs.display.DisplayProfile.fromPreference(
+                prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_PROFILE, null));
+        try {
+            config.nativeScale = Integer.parseInt(prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_NATIVE_SCALE, "100"));
+        } catch (NumberFormatException e) {
+            config.nativeScale = 100;
+        }
 
         return config;
     }

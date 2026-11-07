@@ -28,6 +28,7 @@ public class StreamConfiguration {
     private int colorRange;
     private int colorSpace;
     private boolean persistGamepadsAfterDisconnect;
+    private String grDisplay; // Gabs Remote: valor do parâmetro grDisplay (null = não manda)
 
     public static class Builder {
         private StreamConfiguration config = new StreamConfiguration();
@@ -50,6 +51,12 @@ public class StreamConfiguration {
         
         public StreamConfiguration.Builder setRefreshRate(int refreshRate) {
             config.refreshRate = refreshRate;
+            return this;
+        }
+
+        // Gabs Remote: perfil de tela pedido ao host ("virtual" ou "mirror")
+        public StreamConfiguration.Builder setGrDisplay(String grDisplay) {
+            config.grDisplay = grDisplay;
             return this;
         }
 
@@ -160,6 +167,10 @@ public class StreamConfiguration {
     
     public int getRefreshRate() {
         return refreshRate;
+    }
+
+    public String getGrDisplay() {
+        return grDisplay;
     }
 
     public int getLaunchRefreshRate() {

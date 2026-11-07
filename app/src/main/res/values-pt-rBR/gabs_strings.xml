@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gr_title_display_profile">Perfil de tela</string>
+    <string name="gr_profile_nativo">Nativo do tablet</string>
+    <string name="gr_profile_espelhar">Espelhar monitor</string>
+    <string name="gr_profile_fixo_1080">Fixo 1080p</string>
+    <string name="gr_profile_fixo_720">Fixo 720p</string>
+    <string name="gr_title_native_scale">Escala do nativo</string>
+    <string name="gr_title_touch_mode">Modo de toque</string>
+    <string name="gr_touch_direto">Direto (toque do Windows)</string>
+    <string name="gr_touch_trackpad">Trackpad</string>
+    <string name="gr_touch_so_caneta">Só caneta</string>
+</resources>
