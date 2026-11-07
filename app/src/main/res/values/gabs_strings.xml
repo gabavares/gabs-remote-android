@@ -14,4 +14,8 @@
     <string name="gr_title_windows_scale">Windows scale on the virtual display</string>
     <string name="gr_windows_scale_keep">Keep current</string>
     <string name="gr_title_trackpad_rotation">Keyboard trackpad rotation</string>
+    <string name="gr_title_keyboard_layout">Windows keyboard layout during the session</string>
+    <string name="gr_keyboard_layout_keep">Keep current</string>
+    <string name="gr_keyboard_layout_abnt2">Portuguese (Brazil, ABNT2)</string>
+    <string name="gr_keyboard_layout_us">English (US)</string>
 </resources>

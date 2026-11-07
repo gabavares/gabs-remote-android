@@ -487,6 +487,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setLaunchRefreshRate(prefConfig.fps)
                 .setGrDisplay(prefConfig.displayProfile.launchParam())
                 .setGrScale(prefConfig.displayProfile.windowsScaleParam(prefConfig.windowsScale))
+                .setGrKeyboard(com.limelight.gabs.input.KeyboardLayout.launchParam(prefConfig.keyboardLayout))
                 .setRefreshRate(chosenFrameRate)
                 .setApp(app)
                 .setBitrate(prefConfig.bitrate)
@@ -631,6 +632,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (action == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() == 3) {
             gabsThreeFingerGesture = true;
             threeFingerDownTime = now;
+            LimeLog.info("Gabs menu: tres dedos (modo " + gabsTouchMode + ")");
             gabsCancelNativeTouch();
             for (TouchContext aTouchContext : touchContextMap) {
                 aTouchContext.cancelTouch();
@@ -642,6 +644,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 gabsThreeFingerGesture = false;
                 boolean canceled = action == MotionEvent.ACTION_CANCEL ||
                         (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && (event.getFlags() & MotionEvent.FLAG_CANCELED) != 0);
+                LimeLog.info("Gabs menu: fim do gesto, " + (now - threeFingerDownTime) + " ms, cancelado=" + canceled);
                 if (!canceled && now - threeFingerDownTime < THREE_FINGER_TAP_THRESHOLD) {
                     gabsShowSessionMenu();
                 }
@@ -765,6 +768,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void gabsShowSessionMenu() {
+        LimeLog.info("Gabs menu: abrindo");
         com.limelight.gabs.input.SessionMenu.show(this, streamView, gabsTouchMode, new com.limelight.gabs.input.SessionMenu.Listener() {
             @Override public void onToggleKeyboard() { toggleKeyboard(); }
             @Override public void onTouchModeSelected(com.limelight.gabs.input.TouchMode mode) { gabsSetTouchMode(mode); }

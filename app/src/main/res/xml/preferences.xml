@@ -166,6 +166,13 @@
             android:entries="@array/gr_trackpad_rotation_names"
             android:entryValues="@array/gr_trackpad_rotation_values"
             android:defaultValue="90" />
+        <ListPreference
+            android:key="gr_keyboard_layout"
+            android:title="@string/gr_title_keyboard_layout"
+            android:summary="%s"
+            android:entries="@array/gr_keyboard_layout_names"
+            android:entryValues="@array/gr_keyboard_layout_values"
+            android:defaultValue="00010416" />
         <CheckBoxPreference
             android:key="checkbox_mouse_nav_buttons"
             android:title="@string/title_checkbox_mouse_nav_buttons"

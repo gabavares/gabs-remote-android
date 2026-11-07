@@ -127,6 +127,7 @@ public class PreferenceConfiguration {
     public com.limelight.gabs.display.DisplayProfile displayProfile;
     public int nativeScale;
     public String windowsScale; // Gabs Remote: escala do Windows na tela virtual ("0" = não mudar)
+    public String keyboardLayout; // Gabs Remote: layout de teclado do Windows na sessão ("0" = não mudar)
     public int bitrate;
     public FormatOption videoFormat;
     public int deadzonePercentage;
@@ -610,6 +611,7 @@ public class PreferenceConfiguration {
         config.displayProfile = com.limelight.gabs.display.DisplayProfile.fromPreference(
                 prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_PROFILE, null));
         config.windowsScale = prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_WINDOWS_SCALE, "150");
+        config.keyboardLayout = prefs.getString(com.limelight.gabs.input.KeyboardLayout.PREF_KEY, com.limelight.gabs.input.KeyboardLayout.DEFAULT);
         try {
             config.nativeScale = Integer.parseInt(prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_NATIVE_SCALE, "100"));
         } catch (NumberFormatException e) {

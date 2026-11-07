@@ -61,4 +61,14 @@
         <item>180</item>
         <item>270</item>
     </string-array>
+    <string-array name="gr_keyboard_layout_names">
+        <item>@string/gr_keyboard_layout_keep</item>
+        <item>@string/gr_keyboard_layout_abnt2</item>
+        <item>@string/gr_keyboard_layout_us</item>
+    </string-array>
+    <string-array name="gr_keyboard_layout_values" translatable="false">
+        <item>0</item>
+        <item>00010416</item>
+        <item>00000409</item>
+    </string-array>
 </resources>
