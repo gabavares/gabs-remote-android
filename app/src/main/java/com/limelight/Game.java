@@ -584,6 +584,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
     }
 
+    /** Ação de caneta do evento (ver TouchModePolicy.penAction), ou -1 se não há caneta. */
+    private static int gabsPenActionOf(MotionEvent event) {
+        int[] tools = new int[event.getPointerCount()];
+        for (int i = 0; i < tools.length; i++) {
+            tools[i] = event.getToolType(i);
+        }
+        return com.limelight.gabs.input.TouchModePolicy.penAction(event.getActionMasked(), event.getActionIndex(), tools);
+    }
+
     /** Toque nativo cancelado no Windows (palma, três dedos ou cancelamento do Android). */
     private void gabsCancelNativeTouch() {
         if (gabsNativeTouchActive) {
@@ -601,6 +610,18 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean gabsHandleFinger(View view, MotionEvent event) {
         int action = event.getActionMasked();
         long now = event.getEventTime();
+
+        // Evento misto (palma apoiada antes da caneta): os dedos são descartados e só a caneta vai ao PC.
+        if (gabsPenActionOf(event) >= 0) {
+            gabsCancelNativeTouch();
+            for (TouchContext aTouchContext : touchContextMap) {
+                aTouchContext.cancelTouch();
+            }
+            if (view != null) {
+                trySendPenEvent(view, event);
+            }
+            return true;
+        }
 
         // Três dedos: cancela o que estava em andamento e, se for um toque rápido, abre o menu.
         if (action == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() == 3) {
@@ -1360,6 +1381,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     protected void onStop() {
         super.onStop();
 
+        // Gabs Remote: uma medição de latência não sobrevive à sessão
+        if (gabsLatency != null) {
+            gabsLatency.cancel();
+        }
+
         SpinnerDialog.closeDialogs(this);
         Dialog.closeDialogs();
 
@@ -2064,10 +2090,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // Returns true if the event was consumed
     // NB: View is only present if called from a view callback
     private boolean handleMotionEvent(View view, MotionEvent event) {
-        // Gabs Remote: todo evento de caneta (inclusive hover) alimenta a rejeição de palma
-        if (event.getPointerCount() >= 1 &&
-                (event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS || event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER)) {
-            gabsTouchPolicy.onPenEvent(event.getActionMasked(), event.getEventTime());
+        // Gabs Remote: todo evento com caneta (inclusive hover, e caneta como 2º ponteiro com a palma
+        // já apoiada) alimenta a rejeição de palma
+        int gabsPenAction = gabsPenActionOf(event);
+        if (gabsPenAction >= 0) {
+            gabsTouchPolicy.onPenEvent(gabsPenAction, event.getEventTime());
         }
 
         // Pass through mouse/touch/joystick input if we're not grabbing

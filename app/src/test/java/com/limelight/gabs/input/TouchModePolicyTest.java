@@ -65,4 +65,35 @@ public class TouchModePolicyTest {
         assertEquals(TouchMode.DIRETO, TouchMode.fromPreference("xyz"));
         assertEquals(TouchMode.SO_CANETA, TouchMode.fromPreference("SO_CANETA"));
     }
+
+    private static final int FINGER = MotionEvent.TOOL_TYPE_FINGER, PEN = MotionEvent.TOOL_TYPE_STYLUS;
+
+    @Test
+    public void semCanetaNoEventoNaoHaAcaoDeCaneta() {
+        assertEquals(-1, TouchModePolicy.penAction(MotionEvent.ACTION_MOVE, 0, new int[]{FINGER, FINGER}));
+    }
+
+    @Test
+    public void canetaComoSegundoPonteiroContaComoContato() {
+        // Palma já apoiada (ponteiro 0) e a caneta encosta depois (ponteiro 1).
+        assertEquals(MotionEvent.ACTION_DOWN,
+                TouchModePolicy.penAction(MotionEvent.ACTION_POINTER_DOWN, 1, new int[]{FINGER, PEN}));
+        assertEquals(MotionEvent.ACTION_UP,
+                TouchModePolicy.penAction(MotionEvent.ACTION_POINTER_UP, 1, new int[]{FINGER, PEN}));
+        // Um dedo que entra ou sai não tira a caneta da tela.
+        assertEquals(MotionEvent.ACTION_MOVE,
+                TouchModePolicy.penAction(MotionEvent.ACTION_POINTER_DOWN, 2, new int[]{FINGER, PEN, FINGER}));
+        assertEquals(MotionEvent.ACTION_MOVE,
+                TouchModePolicy.penAction(MotionEvent.ACTION_MOVE, 0, new int[]{FINGER, PEN}));
+    }
+
+    @Test
+    public void palmaAntesDaCanetaContinuaDescartada() {
+        TouchModePolicy p = new TouchModePolicy();
+        p.onPenEvent(MotionEvent.ACTION_HOVER_ENTER, 1000);
+        p.onPenEvent(MotionEvent.ACTION_HOVER_EXIT, 1200); // a caneta encostou
+        p.onPenEvent(TouchModePolicy.penAction(MotionEvent.ACTION_POINTER_DOWN, 1, new int[]{FINGER, PEN}), 1210);
+        p.onPenEvent(TouchModePolicy.penAction(MotionEvent.ACTION_MOVE, 0, new int[]{FINGER, PEN}), 2500);
+        assertEquals(Action.DROP, p.fingerAction(TouchMode.DIRETO, 1, 2600));
+    }
 }

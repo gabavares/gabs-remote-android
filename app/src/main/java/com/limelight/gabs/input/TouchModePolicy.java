@@ -40,6 +40,39 @@ public class TouchModePolicy {
         }
     }
 
+    /**
+     * Ação de caneta contida num evento que pode misturar dedos e caneta (ex.: palma apoiada antes).
+     *
+     * @return a ação a passar para onPenEvent, ou -1 se o evento não tem caneta
+     */
+    public static int penAction(int actionMasked, int actionIndex, int[] toolTypes) {
+        boolean hasPen = false;
+        for (int t : toolTypes) {
+            if (isPen(t)) {
+                hasPen = true;
+                break;
+            }
+        }
+        if (!hasPen) {
+            return -1;
+        }
+        switch (actionMasked) {
+            case MotionEvent.ACTION_POINTER_DOWN:
+            case MotionEvent.ACTION_POINTER_UP:
+                if (actionIndex >= 0 && actionIndex < toolTypes.length && isPen(toolTypes[actionIndex])) {
+                    return actionMasked == MotionEvent.ACTION_POINTER_DOWN ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP;
+                }
+                // Um dedo entrou ou saiu; a caneta continua na tela.
+                return MotionEvent.ACTION_MOVE;
+            default:
+                return actionMasked;
+        }
+    }
+
+    private static boolean isPen(int toolType) {
+        return toolType == MotionEvent.TOOL_TYPE_STYLUS || toolType == MotionEvent.TOOL_TYPE_ERASER;
+    }
+
     public boolean penNearby(long nowMs) {
         return penPresent || nowMs - penLeftAtMs < PALM_GRACE_MS;
     }

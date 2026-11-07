@@ -44,6 +44,8 @@ public class LatencyProbe {
     static final long CLICK_INTERVAL_MS = 400, CLICK_TIMEOUT_MS = 1000;
     static final long STAMP_DURATION_MS = 10_000;
     static final int CLOCK_PINGS = 20;
+    /** Prazo máximo de cada medição, mesmo sem quadros (superfície destruída, PixelCopy falhando). */
+    static final long CLICK_DEADLINE_MS = 60_000, STAMP_GRACE_MS = 2_000;
 
     private static final int STAMP_W = 128, STAMP_H = 80, CELL = 16, CLICK_X0 = 128, CLICK_X1 = 192, CLICK_H = 64;
 
@@ -218,6 +220,7 @@ public class LatencyProbe {
             }
         };
         main.postDelayed(tick, 500);
+        main.postDelayed(() -> finish("clique", stats, null), CLICK_DEADLINE_MS);
     }
 
     // ---------- modo Carimbo ----------
@@ -240,6 +243,7 @@ public class LatencyProbe {
             final long clockOffset = offset;
             final LatencyStats stats = new LatencyStats();
             final long end = SystemClock.elapsedRealtime() + STAMP_DURATION_MS;
+            main.postDelayed(() -> finish("carimbo", stats, null), STAMP_DURATION_MS + STAMP_GRACE_MS);
             main.post(() -> readEveryFrame((bmp, at) -> {
                 Long t = StampCodec.decode(stampLumas(bmp));
                 synchronized (stats) {
@@ -303,13 +307,16 @@ public class LatencyProbe {
                 return;
             }
             running = false;
+            main.removeCallbacksAndMessages(null);
             stopCopyThread();
             session.onFinished(mode, stats, error);
         });
     }
 
+    /** Para a medição sem mostrar resultado (ex.: a sessão fechou). */
     public void cancel() {
         running = false;
+        main.removeCallbacksAndMessages(null);
         stopCopyThread();
     }
 }
