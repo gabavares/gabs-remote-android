@@ -126,6 +126,7 @@ public class PreferenceConfiguration {
     // Gabs Remote: perfil de tela (grDisplay) e escala do perfil nativo
     public com.limelight.gabs.display.DisplayProfile displayProfile;
     public int nativeScale;
+    public String windowsScale; // Gabs Remote: escala do Windows na tela virtual ("0" = não mudar)
     public int bitrate;
     public FormatOption videoFormat;
     public int deadzonePercentage;
@@ -608,6 +609,7 @@ public class PreferenceConfiguration {
         // Gabs Remote: perfil de tela e escala do nativo
         config.displayProfile = com.limelight.gabs.display.DisplayProfile.fromPreference(
                 prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_PROFILE, null));
+        config.windowsScale = prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_WINDOWS_SCALE, "150");
         try {
             config.nativeScale = Integer.parseInt(prefs.getString(com.limelight.gabs.display.DisplayProfile.PREF_NATIVE_SCALE, "100"));
         } catch (NumberFormatException e) {

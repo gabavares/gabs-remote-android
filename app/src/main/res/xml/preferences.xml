@@ -33,6 +33,13 @@
             android:entries="@array/gr_native_scale_names"
             android:entryValues="@array/gr_native_scale_values"
             android:defaultValue="100" />
+        <ListPreference
+            android:key="gr_windows_scale"
+            android:title="@string/gr_title_windows_scale"
+            android:summary="%s"
+            android:entries="@array/gr_windows_scale_names"
+            android:entryValues="@array/gr_windows_scale_values"
+            android:defaultValue="150" />
         <com.limelight.preferences.SeekBarPreference
             android:key="seekbar_bitrate_kbps"
             android:dialogMessage="@string/summary_seekbar_bitrate"

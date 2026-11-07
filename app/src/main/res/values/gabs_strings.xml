@@ -11,4 +11,6 @@
     <string name="gr_touch_direto">Direct (Windows touch)</string>
     <string name="gr_touch_trackpad">Trackpad</string>
     <string name="gr_touch_so_caneta">Pen only</string>
+    <string name="gr_title_windows_scale">Windows scale on the virtual display</string>
+    <string name="gr_windows_scale_keep">Keep current</string>
 </resources>

@@ -483,6 +483,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setResolution(prefConfig.width, prefConfig.height)
                 .setLaunchRefreshRate(prefConfig.fps)
                 .setGrDisplay(prefConfig.displayProfile.launchParam())
+                .setGrScale(prefConfig.displayProfile.windowsScaleParam(prefConfig.windowsScale))
                 .setRefreshRate(chosenFrameRate)
                 .setApp(app)
                 .setBitrate(prefConfig.bitrate)

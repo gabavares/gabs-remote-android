@@ -791,6 +791,7 @@ public class NvHTTP {
             "&gcpersist="+(context.streamConfig.getPersistGamepadsAfterDisconnect() ? 1 : 0) +
             // Gabs Remote: perfil de tela (tela virtual ou espelhar), no /launch e no /resume
             (context.streamConfig.getGrDisplay() == null ? "" : "&grDisplay=" + context.streamConfig.getGrDisplay()) +
+            (context.streamConfig.getGrScale() == null ? "" : "&grScale=" + context.streamConfig.getGrScale()) +
             MoonBridge.getLaunchUrlQueryParameters());
         if ((verb.equals("launch") && !getXmlString(xmlStr, "gamesession", true).equals("0") ||
                 (verb.equals("resume") && !getXmlString(xmlStr, "resume", true).equals("0")))) {

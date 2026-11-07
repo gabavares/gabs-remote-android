@@ -29,6 +29,7 @@ public class StreamConfiguration {
     private int colorSpace;
     private boolean persistGamepadsAfterDisconnect;
     private String grDisplay; // Gabs Remote: valor do parâmetro grDisplay (null = não manda)
+    private String grScale; // Gabs Remote: escala do Windows na tela virtual (null = não manda)
 
     public static class Builder {
         private StreamConfiguration config = new StreamConfiguration();
@@ -57,6 +58,12 @@ public class StreamConfiguration {
         // Gabs Remote: perfil de tela pedido ao host ("virtual" ou "mirror")
         public StreamConfiguration.Builder setGrDisplay(String grDisplay) {
             config.grDisplay = grDisplay;
+            return this;
+        }
+
+        // Gabs Remote: escala do Windows (100, 125, 150, 175, 200) aplicada pelo host na tela virtual
+        public StreamConfiguration.Builder setGrScale(String grScale) {
+            config.grScale = grScale;
             return this;
         }
 
@@ -171,6 +178,10 @@ public class StreamConfiguration {
 
     public String getGrDisplay() {
         return grDisplay;
+    }
+
+    public String getGrScale() {
+        return grScale;
     }
 
     public int getLaunchRefreshRate() {

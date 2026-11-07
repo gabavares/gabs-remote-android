@@ -18,6 +18,22 @@ public enum DisplayProfile {
     /** Resolução do monitor físico do PC, usada no Espelhar. */
     static final int MIRROR_WIDTH = 2560, MIRROR_HEIGHT = 1440;
 
+    /** Chave da preferência da escala do Windows na tela virtual ("0" = não mudar). */
+    public static final String PREF_WINDOWS_SCALE = "gr_windows_scale";
+
+    /** Valor do parâmetro grScale, ou null para não mandar (Espelhar ou "não mudar"). */
+    public String windowsScaleParam(String prefValue) {
+        if (this == ESPELHAR || prefValue == null) {
+            return null;
+        }
+        switch (prefValue) {
+            case "100": case "125": case "150": case "175": case "200":
+                return prefValue;
+            default:
+                return null;
+        }
+    }
+
     /** Valor do parâmetro grDisplay do /launch e do /resume. */
     public String launchParam() {
         return this == ESPELHAR ? "mirror" : "virtual";

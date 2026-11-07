@@ -47,4 +47,14 @@ public class DisplayProfileTest {
         assertEquals(DisplayProfile.NATIVO, DisplayProfile.fromPreference("qualquer"));
         assertEquals(DisplayProfile.FIXO_720, DisplayProfile.fromPreference("FIXO_720"));
     }
+
+    @Test
+    public void escalaDoWindowsSoComTelaVirtual() {
+        assertEquals("150", DisplayProfile.NATIVO.windowsScaleParam("150"));
+        assertEquals("125", DisplayProfile.FIXO_1080.windowsScaleParam("125"));
+        assertEquals(null, DisplayProfile.ESPELHAR.windowsScaleParam("150"));
+        assertEquals(null, DisplayProfile.NATIVO.windowsScaleParam("0"));
+        assertEquals(null, DisplayProfile.NATIVO.windowsScaleParam(null));
+        assertEquals(null, DisplayProfile.NATIVO.windowsScaleParam("abc"));
+    }
 }
