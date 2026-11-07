@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gabs Remote: tokens do design system GAB/S, coluna "escuro" de tools/marca/cores.json
+     (o tema do upstream é escuro). azul = ação e foco; acido = destaque; laranja = só erro. -->
+<resources>
+    <color name="gabs_azul">#2A45FF</color>
+    <color name="gabs_acido">#DCF02C</color>
+    <color name="gabs_laranja">#FF5533</color>
+</resources>

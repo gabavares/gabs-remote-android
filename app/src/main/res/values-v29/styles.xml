@@ -1,5 +1,9 @@
 <resources>
     <style name="AppBaseTheme" parent="android:Theme.Material">
+        <!-- Gabs Remote: cores da marca -->
+        <item name="android:colorPrimary">@color/gabs_azul</item>
+        <item name="android:colorAccent">@color/gabs_azul</item>
+        <item name="android:colorError">@color/gabs_laranja</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <!-- Avoid some systems like MIUI which break the visibility of games title -->

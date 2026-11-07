@@ -42,3 +42,5 @@ app/.externalNativeBuild/
 
 # NDK stuff
 .cxx/
+# Gabs Remote: dados da keystore de release (docs/segredos.md)
+keystore.properties
