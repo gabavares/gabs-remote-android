@@ -147,4 +147,6 @@ dependencies {
 
     // Gabs Remote: testes unitários dos módulos com.limelight.gabs
     testImplementation 'junit:junit:4.13.2'
+    // Gabs Remote: org.json de verdade nos testes (o do android.jar é só stub)
+    testImplementation 'org.json:json:20231013'
 }

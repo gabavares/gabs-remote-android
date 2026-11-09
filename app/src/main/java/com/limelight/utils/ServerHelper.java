@@ -64,6 +64,16 @@ public class ServerHelper {
         intent.putExtra(Game.EXTRA_UNIQUEID, managerBinder.getUniqueId());
         intent.putExtra(Game.EXTRA_PC_UUID, computer.uuid);
         intent.putExtra(Game.EXTRA_PC_NAME, computer.name);
+        // Gabs Remote: caminho escolhido e endereços conhecidos (para a reconexão)
+        if (computer.grPathKind != null) {
+            intent.putExtra(Game.EXTRA_GR_PATH, computer.grPathKind.name());
+            intent.putExtra(Game.EXTRA_GR_RTT, computer.grRttMs);
+        }
+        java.util.ArrayList<String> candidates = new java.util.ArrayList<>();
+        for (com.limelight.gabs.net.Candidate c : com.limelight.gabs.net.Candidate.forComputer(computer)) {
+            candidates.add(c.toString());
+        }
+        intent.putStringArrayListExtra(Game.EXTRA_GR_CANDIDATES, candidates);
         try {
             if (computer.serverCert != null) {
                 intent.putExtra(Game.EXTRA_SERVER_CERT, computer.serverCert.getEncoded());

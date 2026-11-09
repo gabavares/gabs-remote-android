@@ -195,6 +195,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public static final String EXTRA_PC_NAME = "PcName";
     public static final String EXTRA_APP_HDR = "HDR";
     public static final String EXTRA_SERVER_CERT = "ServerCert";
+    // Gabs Remote: caminho escolhido, tempo de resposta e endereços conhecidos (reconexão)
+    public static final String EXTRA_GR_PATH = "GrPath";
+    public static final String EXTRA_GR_RTT = "GrRtt";
+    public static final String EXTRA_GR_CANDIDATES = "GrCandidates";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -588,6 +592,30 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 "% -> " + res[0] + "x" + res[1] + " (tela " + nativeWidth + "x" + nativeHeight + ")");
         prefConfig.width = res[0];
         prefConfig.height = res[1];
+    }
+
+    // ===== Gabs Remote: caminho da conexão =====
+
+    private String gabsPathLabel() {
+        String name = getIntent().getStringExtra(EXTRA_GR_PATH);
+        if (name == null) {
+            return null;
+        }
+        try {
+            return com.limelight.gabs.net.PathKind.valueOf(name).label();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private void gabsShowPath() {
+        String label = gabsPathLabel();
+        if (label == null) {
+            return;
+        }
+        long rtt = getIntent().getLongExtra(EXTRA_GR_RTT, -1);
+        Toast.makeText(this, getString(R.string.gr_connected_by, label, rtt < 0 ? "?" : String.valueOf(rtt)),
+                Toast.LENGTH_SHORT).show();
     }
 
     // ===== Gabs Remote: modos de toque, zoom local e menu da sessão =====
@@ -2817,6 +2845,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 connected = true;
                 connecting = false;
                 updatePipAutoEnter();
+                gabsShowPath(); // Gabs Remote
 
                 // Hide the mouse cursor now after a short delay.
                 // Doing it before dismissing the spinner seems to be undone
@@ -3068,7 +3097,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                performanceOverlayView.setText(text);
+                // Gabs Remote: o overlay mostra também o caminho em uso
+                String path = gabsPathLabel();
+                performanceOverlayView.setText(path == null ? text : text + "\nCaminho: " + path);
             }
         });
     }

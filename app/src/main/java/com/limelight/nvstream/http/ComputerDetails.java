@@ -76,6 +76,9 @@ public class ComputerDetails {
     public int runningGameId;
     public String rawAppList;
     public boolean nvidiaServer;
+    // Gabs Remote: caminho escolhido no último poll e o tempo de resposta dele
+    public com.limelight.gabs.net.PathKind grPathKind;
+    public long grRttMs;
 
     public ComputerDetails() {
         // Use defaults
@@ -114,6 +117,9 @@ public class ComputerDetails {
         this.uuid = details.uuid;
         if (details.activeAddress != null) {
             this.activeAddress = details.activeAddress;
+            // Gabs Remote: o caminho acompanha o endereço ativo
+            this.grPathKind = details.grPathKind;
+            this.grRttMs = details.grRttMs;
         }
         // We can get IPv4 loopback addresses with GS IPv6 Forwarder
         if (details.localAddress != null && !details.localAddress.address.startsWith("127.")) {

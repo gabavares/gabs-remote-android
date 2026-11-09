@@ -244,6 +244,39 @@
             android:summary="@string/summary_checkbox_host_audio"
             android:defaultValue="false" />
     </PreferenceCategory>
+    <!-- Gabs Remote: acesso de fora (fase 3, decisão 0005) -->
+    <PreferenceCategory android:title="@string/gr_category_remote">
+        <ListPreference
+            android:key="gr_force_path"
+            android:title="@string/gr_title_force_path"
+            android:summary="%s"
+            android:entries="@array/gr_force_path_names"
+            android:entryValues="@array/gr_force_path_values"
+            android:defaultValue="AUTO" />
+        <ListPreference
+            android:key="gr_wake_method"
+            android:title="@string/gr_title_wake_method"
+            android:summary="%s"
+            android:entries="@array/gr_wake_method_names"
+            android:entryValues="@array/gr_wake_method_values"
+            android:defaultValue="ROTEADOR" />
+        <EditTextPreference
+            android:key="gr_wake_port"
+            android:title="@string/gr_title_wake_port"
+            android:inputType="number"
+            android:defaultValue="8080" />
+        <EditTextPreference
+            android:key="gr_presence_url"
+            android:title="@string/gr_title_presence_url"
+            android:inputType="textUri"
+            android:defaultValue="https://remote.gabtavares.com/presenca.php" />
+        <EditTextPreference
+            android:key="gr_presence_token"
+            android:title="@string/gr_title_presence_token"
+            android:summary="@string/gr_summary_presence_token"
+            android:inputType="textPassword"
+            android:defaultValue="" />
+    </PreferenceCategory>
     <PreferenceCategory android:title="@string/category_ui_settings"
         android:key="category_ui_settings">
         <CheckBoxPreference

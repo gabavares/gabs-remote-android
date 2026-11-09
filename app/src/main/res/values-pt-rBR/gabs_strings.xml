@@ -17,4 +17,23 @@
     <string name="gr_keyboard_layout_keep">Não mudar</string>
     <string name="gr_keyboard_layout_abnt2">Português (Brasil, ABNT2)</string>
     <string name="gr_keyboard_layout_us">Inglês (EUA)</string>
+    <!-- Fase 3: acesso de fora (decisão 0005) -->
+    <string name="gr_category_remote">Acesso de fora</string>
+    <string name="gr_title_presence_url">Página de presença</string>
+    <string name="gr_title_presence_token">Token da presença</string>
+    <string name="gr_summary_presence_token">Usado para achar o IP de casa e ligar o PC de fora. Vazio: desligado</string>
+    <string name="gr_title_force_path">Forçar caminho</string>
+    <string name="gr_path_auto">Automático</string>
+    <string name="gr_path_lan">Rede de casa</string>
+    <string name="gr_path_tailscale">Tailscale</string>
+    <string name="gr_path_manual">Endereço manual</string>
+    <string name="gr_connected_by">Conectado por %1$s · %2$s ms</string>
+    <string name="gr_title_wake_method">Ligar o PC de fora</string>
+    <string name="gr_wake_none">Desligado (só na rede de casa)</string>
+    <string name="gr_wake_router">Roteador (UDP para o IP de casa)</string>
+    <string name="gr_title_wake_port">Porta do roteador para o WoL</string>
+    <string name="gr_wake_title">Ligando o PC</string>
+    <string name="gr_wake_message">Esperando o PC responder… %1$s</string>
+    <string name="gr_wake_timeout">O PC não respondeu em 3 minutos.</string>
+    <string name="gr_wake_no_way">Não deu para mandar o pacote: MAC ou IP de casa desconhecido.</string>
 </resources>

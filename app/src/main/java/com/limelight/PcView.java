@@ -294,6 +294,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     public void onDestroy() {
         super.onDestroy();
 
+        if (gabsWakeDialog != null) {
+            gabsWakeDialog.finish(); // Gabs Remote
+        }
+
         if (managerBinder != null) {
             unbindService(serviceConnection);
         }
@@ -497,6 +501,10 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         }).start();
     }
 
+    // Gabs Remote: liga o PC pelo pacote de casa (upstream) e pelo roteador de casa (decisão 0005),
+    // e espera o PC responder para abrir a lista de apps
+    private com.limelight.gabs.wake.WakeDialog gabsWakeDialog;
+
     private void doWakeOnLan(final ComputerDetails computer) {
         if (computer.state == ComputerDetails.State.ONLINE) {
             Toast.makeText(PcView.this, getResources().getString(R.string.wol_pc_online), Toast.LENGTH_SHORT).show();
@@ -511,19 +519,29 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                String message;
+                boolean local;
                 try {
                     WakeOnLanSender.sendWolPacket(computer);
-                    message = getResources().getString(R.string.wol_waking_msg);
+                    local = true;
                 } catch (IOException e) {
-                    message = getResources().getString(R.string.wol_fail);
+                    local = false;
                 }
+                final boolean remote = com.limelight.gabs.wake.RemoteWake.trigger(PcView.this, computer);
+                final boolean sent = local || remote;
 
-                final String toastMessage = message;
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(PcView.this, toastMessage, Toast.LENGTH_LONG).show();
+                        if (!sent) {
+                            Toast.makeText(PcView.this, getResources().getString(R.string.wol_fail), Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        if (gabsWakeDialog != null) {
+                            gabsWakeDialog.finish();
+                        }
+                        gabsWakeDialog = new com.limelight.gabs.wake.WakeDialog(PcView.this, computer.uuid,
+                                pc -> doAppList(pc, false, false));
+                        gabsWakeDialog.show();
                     }
                 });
             }
@@ -713,6 +731,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     }
     
     private void updateComputer(ComputerDetails details) {
+        if (gabsWakeDialog != null && gabsWakeDialog.isActive()) {
+            gabsWakeDialog.onComputerUpdated(details); // Gabs Remote
+        }
         ComputerObject existingEntry = null;
 
         for (int i = 0; i < pcGridAdapter.getCount(); i++) {

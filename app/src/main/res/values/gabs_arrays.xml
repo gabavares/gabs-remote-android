@@ -71,4 +71,25 @@
         <item>00010416</item>
         <item>00000409</item>
     </string-array>
+    <!-- Fase 3: acesso de fora -->
+    <string-array name="gr_force_path_names">
+        <item>@string/gr_path_auto</item>
+        <item>@string/gr_path_lan</item>
+        <item>@string/gr_path_tailscale</item>
+        <item>@string/gr_path_manual</item>
+    </string-array>
+    <string-array name="gr_force_path_values" translatable="false">
+        <item>AUTO</item>
+        <item>LAN</item>
+        <item>TAILSCALE</item>
+        <item>MANUAL</item>
+    </string-array>
+    <string-array name="gr_wake_method_names">
+        <item>@string/gr_wake_none</item>
+        <item>@string/gr_wake_router</item>
+    </string-array>
+    <string-array name="gr_wake_method_values" translatable="false">
+        <item>NENHUM</item>
+        <item>ROTEADOR</item>
+    </string-array>
 </resources>

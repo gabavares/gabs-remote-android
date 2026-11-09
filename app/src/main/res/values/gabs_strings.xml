@@ -20,4 +20,23 @@
     <string name="gr_keyboard_layout_us">English (US)</string>
     <!-- Texto, não número: como número o "00010416" virava 10416 -->
     <string name="gr_keyboard_layout_default" translatable="false">00010416</string>
+    <!-- Fase 3: acesso de fora (decisão 0005) -->
+    <string name="gr_category_remote">Remote access</string>
+    <string name="gr_title_presence_url">Presence page</string>
+    <string name="gr_title_presence_token">Presence token</string>
+    <string name="gr_summary_presence_token">Used to find the home IP to wake the PC from outside. Empty: off</string>
+    <string name="gr_title_force_path">Force path</string>
+    <string name="gr_path_auto">Automatic</string>
+    <string name="gr_path_lan">Home network</string>
+    <string name="gr_path_tailscale">Tailscale</string>
+    <string name="gr_path_manual">Manual address</string>
+    <string name="gr_connected_by">Connected by %1$s · %2$s ms</string>
+    <string name="gr_title_wake_method">Wake the PC from outside</string>
+    <string name="gr_wake_none">Off (home network only)</string>
+    <string name="gr_wake_router">Router (UDP to the home IP)</string>
+    <string name="gr_title_wake_port">Router port for Wake-on-LAN</string>
+    <string name="gr_wake_title">Waking the PC</string>
+    <string name="gr_wake_message">Waiting for the PC to answer… %1$s</string>
+    <string name="gr_wake_timeout">The PC did not answer in 3 minutes.</string>
+    <string name="gr_wake_no_way">Could not send the wake packet: unknown MAC or home IP.</string>
 </resources>

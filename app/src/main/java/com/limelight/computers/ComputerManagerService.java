@@ -6,6 +6,7 @@ import java.io.StringReader;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -13,6 +14,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.limelight.gabs.net.Candidate;
+import com.limelight.gabs.net.GabsNetPrefs;
+import com.limelight.gabs.net.ParallelPathPoller;
+import com.limelight.gabs.net.PathKind;
+import com.limelight.gabs.net.PathSelector;
 import com.limelight.LimeLog;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.discovery.DiscoveryService;
@@ -578,131 +584,28 @@ public class ComputerManagerService extends Service {
         }
     }
 
-    private static class ParallelPollTuple {
-        public ComputerDetails.AddressTuple address;
-        public ComputerDetails existingDetails;
+    // Gabs Remote: todos os endereços do PC são testados ao mesmo tempo e o caminho é escolhido pelo
+    // tempo de resposta (rede de casa primeiro), no lugar da espera em ordem fixa do upstream.
+    private ComputerDetails parallelPollPc(final ComputerDetails details) throws InterruptedException {
+        List<Candidate> candidates = Candidate.forComputer(details);
+        candidates = PathSelector.filter(candidates, GabsNetPrefs.forcedPath(this));
 
-        public boolean complete;
-        public Thread pollingThread;
-        public ComputerDetails returnedDetails;
-
-        public ParallelPollTuple(ComputerDetails.AddressTuple address, ComputerDetails existingDetails) {
-            this.address = address;
-            this.existingDetails = existingDetails;
+        ParallelPathPoller.Result<ComputerDetails> result = ParallelPathPoller.poll(candidates,
+                c -> tryPollIp(details, c.address), GabsNetPrefs.GRACE_MS);
+        if (result == null) {
+            return null;
         }
-
-        public void interrupt() {
-            if (pollingThread != null) {
-                pollingThread.interrupt();
-            }
-        }
-    }
-
-    private void startParallelPollThread(ParallelPollTuple tuple, HashSet<ComputerDetails.AddressTuple> uniqueAddresses) {
-        // Don't bother starting a polling thread for an address that doesn't exist
-        // or if the address has already been polled with an earlier tuple
-        if (tuple.address == null || !uniqueAddresses.add(tuple.address)) {
-            tuple.complete = true;
-            tuple.returnedDetails = null;
-            return;
-        }
-
-        tuple.pollingThread = new Thread() {
-            @Override
-            public void run() {
-                ComputerDetails details = tryPollIp(tuple.existingDetails, tuple.address);
-
-                synchronized (tuple) {
-                    tuple.complete = true; // Done
-                    tuple.returnedDetails = details; // Polling result
-
-                    tuple.notify();
-                }
-            }
-        };
-        tuple.pollingThread.setName("Parallel Poll - "+tuple.address+" - "+tuple.existingDetails.name);
-        tuple.pollingThread.start();
-    }
-
-    private ComputerDetails parallelPollPc(ComputerDetails details) throws InterruptedException {
-        ParallelPollTuple localInfo = new ParallelPollTuple(details.localAddress, details);
-        ParallelPollTuple manualInfo = new ParallelPollTuple(details.manualAddress, details);
-        ParallelPollTuple remoteInfo = new ParallelPollTuple(details.remoteAddress, details);
-        ParallelPollTuple ipv6Info = new ParallelPollTuple(details.ipv6Address, details);
-
-        // These must be started in order of precedence for the deduplication algorithm
-        // to result in the correct behavior.
-        HashSet<ComputerDetails.AddressTuple> uniqueAddresses = new HashSet<>();
-        startParallelPollThread(localInfo, uniqueAddresses);
-        startParallelPollThread(manualInfo, uniqueAddresses);
-        startParallelPollThread(remoteInfo, uniqueAddresses);
-        startParallelPollThread(ipv6Info, uniqueAddresses);
-
-        try {
-            // Check local first
-            synchronized (localInfo) {
-                while (!localInfo.complete) {
-                    localInfo.wait();
-                }
-
-                if (localInfo.returnedDetails != null) {
-                    localInfo.returnedDetails.activeAddress = localInfo.address;
-                    return localInfo.returnedDetails;
-                }
-            }
-
-            // Now manual
-            synchronized (manualInfo) {
-                while (!manualInfo.complete) {
-                    manualInfo.wait();
-                }
-
-                if (manualInfo.returnedDetails != null) {
-                    manualInfo.returnedDetails.activeAddress = manualInfo.address;
-                    return manualInfo.returnedDetails;
-                }
-            }
-
-            // Now remote IPv4
-            synchronized (remoteInfo) {
-                while (!remoteInfo.complete) {
-                    remoteInfo.wait();
-                }
-
-                if (remoteInfo.returnedDetails != null) {
-                    remoteInfo.returnedDetails.activeAddress = remoteInfo.address;
-                    return remoteInfo.returnedDetails;
-                }
-            }
-
-            // Now global IPv6
-            synchronized (ipv6Info) {
-                while (!ipv6Info.complete) {
-                    ipv6Info.wait();
-                }
-
-                if (ipv6Info.returnedDetails != null) {
-                    ipv6Info.returnedDetails.activeAddress = ipv6Info.address;
-                    return ipv6Info.returnedDetails;
-                }
-            }
-        } finally {
-            // Stop any further polling if we've found a working address or we've been
-            // interrupted by an attempt to stop polling.
-            localInfo.interrupt();
-            manualInfo.interrupt();
-            remoteInfo.interrupt();
-            ipv6Info.interrupt();
-        }
-
-        return null;
+        result.value.activeAddress = result.candidate.address;
+        result.value.grPathKind = result.candidate.kind;
+        result.value.grRttMs = result.rttMs;
+        return result.value;
     }
 
     private boolean pollComputer(ComputerDetails details) throws InterruptedException {
         // Poll all addresses in parallel to speed up the process
         LimeLog.info("Starting parallel poll for "+details.name+" ("+details.localAddress +", "+details.remoteAddress +", "+details.manualAddress+", "+details.ipv6Address+")");
         ComputerDetails polledDetails = parallelPollPc(details);
-        LimeLog.info("Parallel poll for "+details.name+" returned address: "+details.activeAddress);
+        LimeLog.info("Parallel poll for "+details.name+" returned address: "+(polledDetails != null ? polledDetails.activeAddress + " (" + polledDetails.grPathKind + ", " + polledDetails.grRttMs + " ms)" : "none"));
 
         if (polledDetails != null) {
             details.update(polledDetails);
