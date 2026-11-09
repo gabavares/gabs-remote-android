@@ -39,4 +39,6 @@
     <string name="gr_wake_message">Waiting for the PC to answer… %1$s</string>
     <string name="gr_wake_timeout">The PC did not answer in 3 minutes.</string>
     <string name="gr_wake_no_way">Could not send the wake packet: unknown MAC or home IP.</string>
+    <string name="gr_reconnecting">Reconnecting… (attempt %1$d)</string>
+    <string name="gr_reconnect_gave_up">The connection dropped and did not come back in 2 minutes. The PC is still ready: open the session again when the network is back.</string>
 </resources>

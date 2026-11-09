@@ -109,6 +109,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private int gabsTrackpadRotation = com.limelight.gabs.input.TrackpadRotation.DEFAULT;
     private com.limelight.gabs.input.TouchpadGestures gabsTouchpad;
     private Runnable gabsQuitHostApp;  // encerra o app no host (Voltar, Desconectar); veja SessionExit
+    // Gabs Remote: reconexão automática (fase 3). Com gabsKeepPcReady o fim da tela não manda /cancel.
+    private boolean gabsKeepPcReady;
+    private com.limelight.gabs.session.Reconnector gabsReconnector;
+    private ConnectivityManager.NetworkCallback gabsNetworkCallback;
+    private String gabsUniqueId;
+    private X509Certificate gabsCert;
+    private LimelightCryptoProvider gabsCryptoProvider;
     private com.limelight.gabs.latency.LatencyProbe gabsLatency;
     private long threeFingerDownTime = 0;
     private float gabsMenuX, gabsMenuY;  // centro dos três dedos, na tela
@@ -524,6 +531,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         final ComputerDetails.AddressTuple gabsAddress = new ComputerDetails.AddressTuple(host, port);
         final X509Certificate gabsServerCert = serverCert;
         final LimelightCryptoProvider gabsCrypto = PlatformBinding.getCryptoProvider(this);
+        gabsUniqueId = uniqueId;
+        gabsCert = serverCert;
+        gabsCryptoProvider = gabsCrypto;
         gabsQuitHostApp = () -> new Thread(() -> {
             try {
                 boolean quit = new NvHTTP(gabsAddress, httpsPort, uniqueId, gabsServerCert, gabsCrypto).quitApp();
@@ -592,6 +602,133 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 "% -> " + res[0] + "x" + res[1] + " (tela " + nativeWidth + "x" + nativeHeight + ")");
         prefConfig.width = res[0];
         prefConfig.height = res[1];
+    }
+
+    // ===== Gabs Remote: reconexão automática (fase 3) =====
+
+    /** @return true se a reconexão começou (há endereços conhecidos do PC) */
+    private boolean gabsStartReconnect() {
+        java.util.ArrayList<String> extras = getIntent().getStringArrayListExtra(EXTRA_GR_CANDIDATES);
+        final java.util.List<com.limelight.gabs.net.Candidate> candidates = new java.util.ArrayList<>();
+        if (extras != null) {
+            for (String e : extras) {
+                com.limelight.gabs.net.Candidate c = com.limelight.gabs.net.Candidate.fromString(e);
+                if (c != null) {
+                    candidates.add(c);
+                }
+            }
+        }
+        if (candidates.isEmpty() || gabsReconnector != null) {
+            return false;
+        }
+        final String uuid = getIntent().getStringExtra(EXTRA_PC_UUID);
+        gabsReconnector = new com.limelight.gabs.session.Reconnector(candidates, c -> {
+            try {
+                NvHTTP http = new NvHTTP(c.address, 0, gabsUniqueId, gabsCert, gabsCryptoProvider);
+                ComputerDetails d = http.getComputerDetails(http.getServerInfo(false));
+                return d.uuid != null && d.uuid.equals(uuid) ? Boolean.TRUE : null;
+            } catch (java.io.IOException | org.xmlpull.v1.XmlPullParserException e) {
+                return null;
+            }
+        }, com.limelight.gabs.net.GabsNetPrefs.GRACE_MS, new com.limelight.gabs.session.Reconnector.Listener() {
+            @Override
+            public void onAttempt(final int attempt) {
+                runOnUiThread(() -> {
+                    notificationOverlayView.setText(getString(R.string.gr_reconnecting, attempt));
+                    notificationOverlayView.setVisibility(View.VISIBLE);
+                });
+            }
+
+            @Override
+            public void onFound(final com.limelight.gabs.net.ParallelPathPoller.Result<Boolean> r) {
+                runOnUiThread(() -> {
+                    if (isFinishing()) {
+                        return;
+                    }
+                    Intent next = new Intent(getIntent());
+                    next.putExtra(EXTRA_HOST, r.candidate.address.address);
+                    next.putExtra(EXTRA_PORT, r.candidate.address.port);
+                    next.putExtra(EXTRA_GR_PATH, r.candidate.kind.name());
+                    next.putExtra(EXTRA_GR_RTT, r.rttMs);
+                    gabsKeepPcReady = true; // decisão 0004: o PC continua pronto e a tela virtual é reaproveitada
+                    startActivity(next);
+                    finish();
+                });
+            }
+
+            @Override
+            public void onGaveUp() {
+                runOnUiThread(() -> {
+                    gabsKeepPcReady = true; // o PC continua pronto até a próxima conexão (decisão 0004)
+                    notificationOverlayView.setVisibility(View.GONE);
+                    Dialog.displayDialog(Game.this, getString(R.string.conn_terminated_title),
+                            getString(R.string.gr_reconnect_gave_up), true);
+                });
+            }
+        });
+        LimeLog.info("Gabs Remote: reconectando por " + candidates.size() + " caminhos");
+        gabsReconnector.start();
+        return true;
+    }
+
+    private void gabsRegisterNetworkCallback() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || gabsNetworkCallback != null) {
+            return;
+        }
+        final ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        gabsNetworkCallback = new ConnectivityManager.NetworkCallback() {
+            private android.net.Network current;
+
+            @Override
+            public void onAvailable(android.net.Network network) {
+                if (current == null) {
+                    current = network; // a rede em que a sessão começou
+                    return;
+                }
+                if (network.equals(current)) {
+                    return;
+                }
+                current = network;
+                com.limelight.gabs.net.PathKind kind = null;
+                String name = getIntent().getStringExtra(EXTRA_GR_PATH);
+                if (name != null) {
+                    try {
+                        kind = com.limelight.gabs.net.PathKind.valueOf(name);
+                    } catch (IllegalArgumentException ignored) {
+                    }
+                }
+                if (!com.limelight.gabs.session.ReconnectPolicy.restartOnNetworkChange(kind)) {
+                    return;
+                }
+                runOnUiThread(() -> {
+                    if (!connected || displayedFailureDialog || isFinishing()) {
+                        return;
+                    }
+                    LimeLog.info("Gabs Remote: a rede mudou; reabrindo a sessão sem esperar a queda");
+                    displayedFailureDialog = true;
+                    stopConnection();
+                    if (!gabsStartReconnect()) {
+                        finish();
+                    }
+                });
+            }
+        };
+        try {
+            cm.registerDefaultNetworkCallback(gabsNetworkCallback);
+        } catch (RuntimeException e) {
+            gabsNetworkCallback = null;
+        }
+    }
+
+    private void gabsUnregisterNetworkCallback() {
+        if (gabsNetworkCallback == null) {
+            return;
+        }
+        try {
+            ((ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE)).unregisterNetworkCallback(gabsNetworkCallback);
+        } catch (RuntimeException ignored) {
+        }
+        gabsNetworkCallback = null;
     }
 
     // ===== Gabs Remote: caminho da conexão =====
@@ -1439,6 +1576,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     protected void onDestroy() {
         super.onDestroy();
 
+        gabsUnregisterNetworkCallback(); // Gabs Remote
+        if (gabsReconnector != null && !gabsKeepPcReady) {
+            gabsReconnector.cancel();
+        }
+
         if (controllerHandler != null) {
             controllerHandler.destroy();
         }
@@ -1501,7 +1643,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             stopConnection();
 
             // Gabs Remote: em segundo plano o PC continua pronto; fechando a sessão, ele é liberado
-            if (gabsQuitHostApp != null && com.limelight.gabs.session.SessionExit.quitHostApp(isFinishing(), true)) {
+            if (gabsReconnector != null && isFinishing() && !gabsKeepPcReady) {
+                gabsReconnector.cancel();
+            }
+            if (gabsQuitHostApp != null && com.limelight.gabs.session.SessionExit.quitHostApp(isFinishing(), true, gabsKeepPcReady)) {
                 gabsQuitHostApp.run();
             }
 
@@ -2743,6 +2888,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     LimeLog.severe("Connection terminated: " + errorCode);
                     stopConnection();
 
+                    // Gabs Remote: queda de rede reabre a sessão sozinha, sem o diálogo do upstream
+                    if (com.limelight.gabs.session.ReconnectPolicy.shouldReconnect(errorCode, isFinishing()) && gabsStartReconnect()) {
+                        return;
+                    }
+
                     // Display the error dialog if it was an unexpected termination.
                     // Otherwise, just finish the activity immediately.
                     if (errorCode != MoonBridge.ML_ERROR_GRACEFUL_TERMINATION) {
@@ -2846,6 +2996,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 connecting = false;
                 updatePipAutoEnter();
                 gabsShowPath(); // Gabs Remote
+                gabsRegisterNetworkCallback(); // Gabs Remote
 
                 // Hide the mouse cursor now after a short delay.
                 // Doing it before dismissing the spinner seems to be undone
