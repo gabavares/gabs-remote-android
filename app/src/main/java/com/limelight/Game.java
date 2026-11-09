@@ -116,6 +116,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private String gabsUniqueId;
     private X509Certificate gabsCert;
     private LimelightCryptoProvider gabsCryptoProvider;
+    private long gabsConnectedAtMs;
     private com.limelight.gabs.latency.LatencyProbe gabsLatency;
     private long threeFingerDownTime = 0;
     private float gabsMenuX, gabsMenuY;  // centro dos três dedos, na tela
@@ -206,6 +207,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public static final String EXTRA_GR_PATH = "GrPath";
     public static final String EXTRA_GR_RTT = "GrRtt";
     public static final String EXTRA_GR_CANDIDATES = "GrCandidates";
+    public static final String EXTRA_GR_RECONNECT_SINCE = "GrReconnectSince";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -622,6 +624,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return false;
         }
         final String uuid = getIntent().getStringExtra(EXTRA_PC_UUID);
+        final long budgetStart = com.limelight.gabs.session.ReconnectPolicy.budgetStart(
+                getIntent().getLongExtra(EXTRA_GR_RECONNECT_SINCE, 0), gabsConnectedAtMs, System.currentTimeMillis());
         gabsReconnector = new com.limelight.gabs.session.Reconnector(candidates, c -> {
             try {
                 NvHTTP http = new NvHTTP(c.address, 0, gabsUniqueId, gabsCert, gabsCryptoProvider);
@@ -630,7 +634,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             } catch (java.io.IOException | org.xmlpull.v1.XmlPullParserException e) {
                 return null;
             }
-        }, com.limelight.gabs.net.GabsNetPrefs.GRACE_MS, new com.limelight.gabs.session.Reconnector.Listener() {
+        }, com.limelight.gabs.net.GabsNetPrefs.GRACE_MS, budgetStart, new com.limelight.gabs.session.Reconnector.Listener() {
             @Override
             public void onAttempt(final int attempt) {
                 runOnUiThread(() -> {
@@ -650,9 +654,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     next.putExtra(EXTRA_PORT, r.candidate.address.port);
                     next.putExtra(EXTRA_GR_PATH, r.candidate.kind.name());
                     next.putExtra(EXTRA_GR_RTT, r.rttMs);
+                    next.putExtra(EXTRA_GR_RECONNECT_SINCE, budgetStart);
                     gabsKeepPcReady = true; // decisão 0004: o PC continua pronto e a tela virtual é reaproveitada
-                    startActivity(next);
+                    // O Game é singleTask: com esta instância viva, startActivity cairia nela mesma
+                    // (onNewIntent). Terminando antes, o Android cria uma instância nova com o Intent novo.
                     finish();
+                    startActivity(next);
                 });
             }
 
@@ -2995,6 +3002,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 connected = true;
                 connecting = false;
                 updatePipAutoEnter();
+                gabsConnectedAtMs = System.currentTimeMillis(); // Gabs Remote
                 gabsShowPath(); // Gabs Remote
                 gabsRegisterNetworkCallback(); // Gabs Remote
 

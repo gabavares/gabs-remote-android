@@ -55,4 +55,12 @@ public class RemoteWakeTest {
         assertNull(MagicPacket.build("zz:c0:4d:6a:9b:2d"));
         assertNull(MagicPacket.build(null));
     }
+
+    @Test
+    public void planExplainsWhyItCannotWake() {
+        assertEquals(RemoteWake.Result.OFF, RemoteWake.plan(RemoteWake.Method.NENHUM, "18:c0:4d:6a:9b:2d", "191.32.66.196"));
+        assertEquals(RemoteWake.Result.NO_MAC, RemoteWake.plan(RemoteWake.Method.ROTEADOR, null, "191.32.66.196"));
+        assertEquals(RemoteWake.Result.NO_HOME_IP, RemoteWake.plan(RemoteWake.Method.ROTEADOR, "18:c0:4d:6a:9b:2d", null));
+        assertEquals(RemoteWake.Result.SENT, RemoteWake.plan(RemoteWake.Method.ROTEADOR, "18:c0:4d:6a:9b:2d", "191.32.66.196"));
+    }
 }

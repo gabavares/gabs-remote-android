@@ -21,10 +21,14 @@ public final class Reconnector {
     private final ParallelPathPoller.Prober<Boolean> prober;
     private final Listener listener;
     private final long graceMs;
+    private final long budgetStartMs;
     private Thread thread;
 
-    public Reconnector(List<Candidate> candidates, ParallelPathPoller.Prober<Boolean> prober, long graceMs, Listener listener) {
+    /** @param budgetStartMs início do prazo ({@link ReconnectPolicy#budgetStart}), em currentTimeMillis */
+    public Reconnector(List<Candidate> candidates, ParallelPathPoller.Prober<Boolean> prober, long graceMs,
+                       long budgetStartMs, Listener listener) {
         this.candidates = candidates;
+        this.budgetStartMs = budgetStartMs;
         this.prober = prober;
         this.graceMs = graceMs;
         this.listener = listener;
@@ -45,7 +49,7 @@ public final class Reconnector {
     }
 
     private void run() {
-        long start = System.currentTimeMillis();
+        long start = budgetStartMs;
         try {
             for (int attempt = 0; ; attempt++) {
                 long delay = ReconnectPolicy.nextDelayMs(attempt, System.currentTimeMillis() - start);

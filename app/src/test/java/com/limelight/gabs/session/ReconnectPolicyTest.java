@@ -40,4 +40,14 @@ public class ReconnectPolicyTest {
         assertTrue(ReconnectPolicy.restartOnNetworkChange(PathKind.LAN));
         assertTrue(ReconnectPolicy.restartOnNetworkChange(null));
     }
+
+    @Test
+    public void budgetCarriesAcrossRelaunchesUntilTheSessionIsStable() {
+        // Primeira queda: o prazo começa agora
+        assertEquals(50_000, ReconnectPolicy.budgetStart(0, 10_000, 50_000));
+        // Reaberta há 10 s e caiu de novo: continua contando do começo original
+        assertEquals(20_000, ReconnectPolicy.budgetStart(20_000, 40_000, 50_000));
+        // Ficou estável (30 s ou mais): prazo novo
+        assertEquals(90_000, ReconnectPolicy.budgetStart(20_000, 60_000, 90_000));
+    }
 }

@@ -526,15 +526,22 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
                 } catch (IOException e) {
                     local = false;
                 }
-                final boolean remote = com.limelight.gabs.wake.RemoteWake.trigger(PcView.this, computer);
-                final boolean sent = local || remote;
+                final com.limelight.gabs.wake.RemoteWake.Result remote = com.limelight.gabs.wake.RemoteWake.trigger(PcView.this, computer);
+                final boolean sent = local || remote == com.limelight.gabs.wake.RemoteWake.Result.SENT;
 
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        if (isFinishing() || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) {
+                            return;
+                        }
                         if (!sent) {
                             Toast.makeText(PcView.this, getResources().getString(R.string.wol_fail), Toast.LENGTH_LONG).show();
                             return;
+                        }
+                        if (remote != com.limelight.gabs.wake.RemoteWake.Result.SENT && remote != com.limelight.gabs.wake.RemoteWake.Result.OFF) {
+                            // Só o pacote de casa saiu: de fora ele não chega, e o motivo é conhecido agora
+                            Toast.makeText(PcView.this, getResources().getString(R.string.gr_wake_no_way), Toast.LENGTH_LONG).show();
                         }
                         if (gabsWakeDialog != null) {
                             gabsWakeDialog.finish();

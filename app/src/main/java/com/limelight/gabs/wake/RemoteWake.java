@@ -23,6 +23,9 @@ import java.net.InetAddress;
 public final class RemoteWake {
     public enum Method { NENHUM, ROTEADOR }
 
+    /** O que aconteceu com o pedido de fora. */
+    public enum Result { SENT, OFF, NO_MAC, NO_HOME_IP, FAILED }
+
     public static final String PREF_METHOD = "gr_wake_method";
     public static final String PREF_PORT = "gr_wake_port";
     public static final int DEFAULT_PORT = 8080;
@@ -61,23 +64,35 @@ public final class RemoteWake {
         return null;
     }
 
+    /** Decide sem rede se dá para mandar; {@code SENT} = pode mandar. */
+    public static Result plan(Method method, String mac, String homeIpv4) {
+        if (method != Method.ROTEADOR) {
+            return Result.OFF;
+        }
+        if (MagicPacket.build(mac) == null) {
+            return Result.NO_MAC;
+        }
+        if (homeIpv4 == null) {
+            return Result.NO_HOME_IP;
+        }
+        return Result.SENT;
+    }
+
     public static Method method(Context c) {
         return parse(PreferenceManager.getDefaultSharedPreferences(c).getString(PREF_METHOD, Method.ROTEADOR.name()));
     }
 
     /**
      * Manda o pacote pelo roteador. Bloqueia (rede): chamar fora da thread da interface.
-     * @return true se o pacote saiu
+     * @return o resultado ({@code SENT} se o pacote saiu)
      */
-    public static boolean trigger(Context c, ComputerDetails pc) {
-        if (method(c) != Method.ROTEADOR) {
-            return false;
+    public static Result trigger(Context c, ComputerDetails pc) {
+        Method method = method(c);
+        Result early = plan(method, pc.macAddress, "0.0.0.0");
+        if (early != Result.SENT) {
+            return early;
         }
         byte[] packet = MagicPacket.build(pc.macAddress);
-        if (packet == null) {
-            LimeLog.warning("Gabs Remote: sem MAC para o WoL de fora");
-            return false;
-        }
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(c);
         PresenceClient.Info info = PresenceClient.fetch(GabsNetPrefs.presenceUrl(c), GabsNetPrefs.presenceToken(c), pc.uuid);
         String last = prefs.getString(PREF_LAST_HOME + pc.uuid, null);
@@ -85,9 +100,9 @@ public final class RemoteWake {
             last = pc.remoteAddress.address;
         }
         String home = homeIpv4(info != null ? info.ipv4 : null, last);
-        if (home == null) {
+        if (plan(method, pc.macAddress, home) != Result.SENT) {
             LimeLog.warning("Gabs Remote: IP de casa desconhecido para o WoL de fora");
-            return false;
+            return Result.NO_HOME_IP;
         }
         prefs.edit().putString(PREF_LAST_HOME + pc.uuid, home).apply();
 
@@ -98,10 +113,10 @@ public final class RemoteWake {
                 sock.send(new DatagramPacket(packet, packet.length, target, port));
             }
             LimeLog.info("Gabs Remote: pacote mágico enviado ao roteador de casa, porta " + port);
-            return true;
+            return Result.SENT;
         } catch (Exception e) {
             LimeLog.warning("Gabs Remote: falha ao mandar o pacote mágico: " + e);
-            return false;
+            return Result.FAILED;
         }
     }
 }
