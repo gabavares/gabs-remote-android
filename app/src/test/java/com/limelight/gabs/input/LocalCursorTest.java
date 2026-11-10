@@ -65,24 +65,50 @@ public class LocalCursorTest {
     }
 
     @Test
-    public void devagarAnda1Para1() {
-        cursor.moveBy(2, 0, 1000);
-        cursor.moveBy(2, 0, 1008); // 0,25 px/ms
-        assertEquals(1404, sent.get(1)[0]);
-    }
-
-    @Test
-    public void rapidoAcelera() {
+    public void semAceleracaoRapidoTambemE1Para1() {
         cursor.moveBy(1, 0, 1000);
-        cursor.moveBy(16, 0, 1008); // 2 px/ms: ganho 3,2
-        assertEquals(Math.round(1401 + 16 * 3.2f), sent.get(1)[0]);
+        cursor.moveBy(40, 0, 1001); // rápido: continua 1 para 1
+        assertEquals(1441, sent.get(1)[0]);
     }
 
     @Test
-    public void ganhoTemTeto() {
-        assertEquals(1f, LocalCursor.gain(0), 1e-6);
-        assertEquals(2f, LocalCursor.gain(1), 1e-6);
-        assertEquals(LocalCursor.ACCEL_MAX, LocalCursor.gain(50), 1e-6);
+    public void velocidadeMultiplica() {
+        cursor.setSpeed(1.5f);
+        cursor.moveBy(10, -4, 0);
+        assertEquals(1415, sent.get(0)[0]);
+        assertEquals(870, sent.get(0)[1]);
+    }
+
+    @Test
+    public void velocidadeDaPreferencia() {
+        assertEquals(1f, LocalCursor.speedFromPercent(100), 1e-6);
+        assertEquals(0.5f, LocalCursor.speedFromPercent(50), 1e-6);
+        assertEquals(LocalCursor.SPEED_MIN_PERCENT / 100f, LocalCursor.speedFromPercent(0), 1e-6);
+        assertEquals(LocalCursor.SPEED_MAX_PERCENT / 100f, LocalCursor.speedFromPercent(9999), 1e-6);
+    }
+
+    @Test
+    public void dedoNaTelaAndaOMesmoQueOCursorNaTela() {
+        // Imagem de 2800 px mostrada em 1400 px de tela: 10 px de dedo = 20 px do PC = 10 px na tela.
+        cursor.moveByScreen(10, 5, 1400, 876, 0);
+        assertEquals(1420, sent.get(0)[0]);
+        assertEquals(886, sent.get(0)[1]);
+    }
+
+    @Test
+    public void dedoNaTelaComZoomContinua1Para1NaTela() {
+        // Zoom 2x: a imagem aparece com 2800 px de tela; 10 px de dedo = 10 px do PC.
+        cursor.moveByScreen(10, 0, 2800, 1752, 0);
+        assertEquals(1410, sent.get(0)[0]);
+    }
+
+    @Test
+    public void movimentosPequenosDoDedoNaoSePerdem() {
+        // Imagem mostrada maior que o PC (zoom): 1 px de dedo = 0,25 px do PC; quatro somam 1.
+        for (int i = 0; i < 4; i++) {
+            cursor.moveByScreen(1, 0, 11200, 7008, 0);
+        }
+        assertEquals(1401, sent.get(3)[0]);
     }
 
     @Test

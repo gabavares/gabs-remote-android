@@ -171,6 +171,18 @@
             android:title="@string/gr_title_local_cursor"
             android:summary="@string/gr_summary_local_cursor"
             android:defaultValue="true" />
+        <com.limelight.preferences.SeekBarPreference
+            android:key="gr_cursor_speed"
+            android:dependency="gr_local_cursor"
+            android:defaultValue="100"
+            seekbar:min="25"
+            android:max="300"
+            seekbar:step="5"
+            seekbar:keyStep="5"
+            android:summary="@string/gr_summary_cursor_speed"
+            android:dialogMessage="@string/gr_summary_cursor_speed"
+            android:text="@string/gr_suffix_cursor_speed"
+            android:title="@string/gr_title_cursor_speed"/>
         <ListPreference
             android:key="gr_keyboard_layout"
             android:title="@string/gr_title_keyboard_layout"

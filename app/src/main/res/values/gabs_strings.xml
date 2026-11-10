@@ -16,6 +16,9 @@
     <string name="gr_title_trackpad_rotation">Keyboard trackpad rotation</string>
     <string name="gr_title_local_cursor">Cursor on the tablet</string>
     <string name="gr_summary_local_cursor">Draws the mouse cursor on the tablet, with no delay (turn off for games that use the raw mouse)</string>
+    <string name="gr_title_cursor_speed">Cursor speed</string>
+    <string name="gr_summary_cursor_speed">100% = the cursor moves as much as your finger on the screen</string>
+    <string name="gr_suffix_cursor_speed">%</string>
     <string name="gr_title_keyboard_layout">Windows keyboard layout during the session</string>
     <string name="gr_keyboard_layout_keep">Keep current</string>
     <string name="gr_keyboard_layout_abnt2">Portuguese (Brazil, ABNT2)</string>

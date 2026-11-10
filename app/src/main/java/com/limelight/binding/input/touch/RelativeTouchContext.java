@@ -104,9 +104,9 @@ public class RelativeTouchContext implements TouchContext {
         this.handler = new Handler(Looper.getMainLooper());
     }
 
-    /** Gabs Remote: com o cursor no tablet, o deslocamento vai para o cursor local (posição absoluta). */
+    /** Gabs Remote: com o cursor no tablet, o deslocamento do dedo (pixels da tela) vai para o cursor local. */
     public interface GabsMover {
-        void moveBy(int dx, int dy);
+        void moveBy(int dxScreenPx, int dyScreenPx);
     }
 
     private GabsMover gabsMover;
@@ -261,7 +261,14 @@ public class RelativeTouchContext implements TouchContext {
             checkForConfirmedScroll();
 
             // We only send moves and drags for the primary touch point
-            if (actionIndex == 0) {
+            if (actionIndex == 0 && gabsMover != null && pointerCount != 2) {
+                // Gabs Remote: cursor no tablet recebe o deslocamento do dedo em pixels da tela, sem a
+                // escala para 1280 x 720 nem arredondamento (o cursor anda o mesmo que o dedo).
+                gabsMover.moveBy(eventX - lastTouchX, eventY - lastTouchY);
+                lastTouchX = eventX;
+                lastTouchY = eventY;
+            }
+            else if (actionIndex == 0) {
                 int deltaX = eventX - lastTouchX;
                 int deltaY = eventY - lastTouchY;
 
@@ -282,10 +289,7 @@ public class RelativeTouchContext implements TouchContext {
                         conn.sendMouseHighResScroll((short)(deltaY * SCROLL_SPEED_FACTOR));
                     }
                 } else {
-                    if (gabsMover != null) {
-                        gabsMover.moveBy(deltaX, deltaY); // Gabs Remote: cursor no tablet
-                    }
-                    else if (prefConfig.absoluteMouseMode) {
+                    if (prefConfig.absoluteMouseMode) {
                         conn.sendMouseMoveAsMousePosition(
                                 (short) deltaX,
                                 (short) deltaY,

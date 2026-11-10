@@ -52,21 +52,27 @@ public final class LocalCursor {
         return enabled ? "local" : null;
     }
 
-    /**
-     * Aceleração no lugar da do Windows ("Aumentar precisão do ponteiro"), que não age em posição
-     * absoluta: devagar = 1 para 1 (precisão); rápido = até {@link #ACCEL_MAX} vezes.
-     * Ganho = 0,8 + 1,2 × velocidade (pixels por ms), entre 1 e ACCEL_MAX.
-     */
-    static final float ACCEL_MAX = 3.5f;
+    /** Preferência "Velocidade do cursor", em %: 100 = 1 para 1 (o cursor anda o mesmo que o dedo na tela). */
+    public static final String PREF_SPEED = "gr_cursor_speed";
+    public static final int SPEED_DEFAULT_PERCENT = 100;
+    static final int SPEED_MIN_PERCENT = 25;
+    static final int SPEED_MAX_PERCENT = 300;
 
-    static float gain(float speedPxPerMs) {
-        float g = 0.8f + 1.2f * speedPxPerMs;
-        return g < 1f ? 1f : (g > ACCEL_MAX ? ACCEL_MAX : g);
+    public static float speedFromPercent(int percent) {
+        int p = Math.max(SPEED_MIN_PERCENT, Math.min(SPEED_MAX_PERCENT, percent));
+        return p / 100f;
     }
 
-    private long lastMoveMs = Long.MIN_VALUE / 2;
+    private float speed = 1f;
 
-    /** Deslocamento de mouse (pixels do PC, antes da aceleração). */
+    public void setSpeed(float speed) {
+        this.speed = speed;
+    }
+
+    /**
+     * Deslocamento de mouse em pixels do PC (mouse ou trackpad do teclado), vezes a velocidade.
+     * Sem aceleração: o movimento é linear, sem depender do tempo entre os eventos.
+     */
     public void moveBy(float dx, float dy, long nowMs) {
         if (dx == 0 && dy == 0) {
             return;
@@ -75,13 +81,21 @@ public final class LocalCursor {
             wakeAtMs = nowMs;
         }
         mouseActive = true;
-        // Intervalo entre 4 e 100 ms: eventos no mesmo ms não viram velocidade infinita; depois de parar, começa devagar.
-        long dt = Math.max(4, Math.min(100, nowMs - lastMoveMs));
-        lastMoveMs = nowMs;
-        float g = gain((float) Math.hypot(dx, dy) / dt);
-        x = clamp(x + dx * g, width - 1);
-        y = clamp(y + dy * g, height - 1);
+        x = clamp(x + dx * speed, width - 1);
+        y = clamp(y + dy * speed, height - 1);
         output.sendPosition(Math.round(x), Math.round(y), width, height);
+    }
+
+    /**
+     * Deslocamento do dedo no trackpad da tela, em pixels da tela. A imagem do PC aparece com
+     * shownWidth x shownHeight pixels de tela (zoom incluído): com velocidade 100%, o cursor anda na
+     * tela o mesmo que o dedo.
+     */
+    public void moveByScreen(float dxPx, float dyPx, float shownWidth, float shownHeight, long nowMs) {
+        if (shownWidth <= 0 || shownHeight <= 0) {
+            return;
+        }
+        moveBy(dxPx * width / shownWidth, dyPx * height / shownHeight, nowMs);
     }
 
     /**

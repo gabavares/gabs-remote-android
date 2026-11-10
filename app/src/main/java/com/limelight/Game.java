@@ -114,6 +114,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private com.limelight.gabs.input.CursorShapePoller gabsCursorPoller;
     // true depois que o host confirmou o grCursor pelo /gabs/cursor; antes disso o mouse segue relativo (como na 0.4.0)
     private boolean gabsCursorActive;
+    private double gabsFallbackRestX, gabsFallbackRestY;
     private Runnable gabsQuitHostApp;  // encerra o app no host (Voltar, Desconectar); veja SessionExit
     // Gabs Remote: reconexão automática (fase 3). Com gabsKeepPcReady o fim da tela não manda /cancel.
     private boolean gabsKeepPcReady;
@@ -815,6 +816,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
         gabsCursor = new com.limelight.gabs.input.LocalCursor(prefConfig.width, prefConfig.height,
                 (x, y, w, h) -> conn.sendMousePosition((short) x, (short) y, (short) w, (short) h));
+        gabsCursor.setSpeed(com.limelight.gabs.input.LocalCursor.speedFromPercent(
+                android.preference.PreferenceManager.getDefaultSharedPreferences(this).getInt(
+                        com.limelight.gabs.input.LocalCursor.PREF_SPEED, com.limelight.gabs.input.LocalCursor.SPEED_DEFAULT_PERCENT)));
         gabsCursorOverlay = new com.limelight.gabs.input.CursorOverlay(this, (android.view.ViewGroup) streamView.getParent());
         // Rotação e mudança de tamanho: a posição é normalizada, só redesenha.
         streamView.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> gabsRenderCursor());
@@ -831,6 +835,26 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             return;
         }
         gabsCursor.moveBy(dx, dy, android.os.SystemClock.uptimeMillis());
+        gabsRenderCursor();
+    }
+
+    /** Trackpad da tela: deslocamento do dedo em pixels da tela; 1 para 1 com a imagem como aparece (zoom incluído). */
+    private void gabsMoveCursorScreen(int dxPx, int dyPx) {
+        if (!gabsCursorActive) {
+            // Como o upstream: escala para 1280 x 720 e o Windows acelera (o resto fracionário fica para o próximo).
+            gabsFallbackRestX += dxPx * (double) REFERENCE_HORIZ_RES / streamView.getWidth();
+            gabsFallbackRestY += dyPx * (double) REFERENCE_VERT_RES / streamView.getHeight();
+            int dx = (int) gabsFallbackRestX, dy = (int) gabsFallbackRestY;
+            gabsFallbackRestX -= dx;
+            gabsFallbackRestY -= dy;
+            if (dx != 0 || dy != 0) {
+                gabsMoveCursor(dx, dy);
+            }
+            return;
+        }
+        gabsCursor.moveByScreen(dxPx, dyPx,
+                streamView.getWidth() * streamView.getScaleX(), streamView.getHeight() * streamView.getScaleY(),
+                android.os.SystemClock.uptimeMillis());
         gabsRenderCursor();
     }
 
@@ -859,7 +883,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                         REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
                         streamView, prefConfig);
                 if (gabsCursor != null) {
-                    relative.setGabsMover(this::gabsMoveCursor);
+                    relative.setGabsMover(this::gabsMoveCursorScreen);
                 }
                 touchContextMap[i] = relative;
             }
