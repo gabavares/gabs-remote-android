@@ -373,6 +373,10 @@ public class NvHTTP {
 
         details.macAddress = getXmlString(serverInfo, "mac", false);
 
+        // Gabs Remote: versão do host e mínima do app (decisão 0006); null em host anterior à fase 4
+        details.gabsVersion = getXmlString(serverInfo, "GabsVersion", false);
+        details.gabsMinApp = getXmlString(serverInfo, "GabsMinApp", false);
+
         // FIXME: Do we want to use the current port?
         details.localAddress = makeTuple(getXmlString(serverInfo, "LocalIP", false), baseUrlHttp.port());
 

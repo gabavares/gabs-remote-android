@@ -3,6 +3,27 @@ apply plugin: 'com.android.application'
 // Gabs Remote: arquivo com os dados da keystore de release (nunca no repositório).
 def gabsKeystoreProps = file(System.getenv('GABS_KEYSTORE_PROPS') ?: "${System.getProperty('user.home')}/.gabs-remote/keystore.properties")
 
+// Gabs Remote: versão do sistema (versao.json, decisão 0006). Sem -PgabsVersion: 0.0.0 e versionCode 1,
+// e o build de release falha (use tools/build/build-android.ps1).
+def gabsVersion = project.findProperty('gabsVersion') ?: '0.0.0'
+def gabsMinHost = project.findProperty('gabsMinHost') ?: '0.0.0'
+def gabsVersionCode = { String v ->
+    def m = v =~ /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/
+    if (!m.matches()) {
+        throw new GradleException("gabsVersion inválida: '${v}' (use x.y.z)")
+    }
+    int code = (m.group(1) as int) * 1000000 + (m.group(2) as int) * 1000 + (m.group(3) as int)
+    return code == 0 ? 1 : code
+}
+if (!(gabsMinHost ==~ /^\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
+    throw new GradleException("gabsMinHost inválida: '${gabsMinHost}' (use x.y.z)")
+}
+gradle.taskGraph.whenReady { graph ->
+    if (!project.hasProperty('gabsVersion') && graph.allTasks.any { it.name ==~ /assemble.*Release|bundle.*Release/ }) {
+        throw new GradleException('passe -PgabsVersion (use build-android.ps1)')
+    }
+}
+
 android {
     ndkVersion "29.0.14206865"
 
@@ -14,8 +35,11 @@ android {
         minSdk 21
         targetSdk 36
 
-        versionName "12.2"
-        versionCode = 315
+        // Gabs Remote: versão única do sistema, do versao.json (decisão 0006), passada por
+        // build-android.ps1 com -PgabsVersion e -PgabsMinHost. versionCode = major·1000000 + minor·1000 + patch.
+        versionName gabsVersion
+        versionCode = gabsVersionCode(gabsVersion)
+        buildConfigField "String", "GABS_MIN_HOST", "\"${gabsMinHost}\""
 
         // Generate native debug symbols to allow Google Play to symbolicate our native crashes
         ndk.debugSymbolLevel = 'FULL'

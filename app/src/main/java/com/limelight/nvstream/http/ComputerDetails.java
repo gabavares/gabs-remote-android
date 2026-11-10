@@ -78,6 +78,9 @@ public class ComputerDetails {
     public boolean nvidiaServer;
     // Gabs Remote: caminho escolhido no último poll e o tempo de resposta dele
     public com.limelight.gabs.net.PathKind grPathKind;
+    // Gabs Remote: versão do host e mínima do app que ele aceita (null em host anterior à fase 4)
+    public String gabsVersion;
+    public String gabsMinApp;
     public long grRttMs;
 
     public ComputerDetails() {
@@ -152,6 +155,9 @@ public class ComputerDetails {
         this.runningGameId = details.runningGameId;
         this.nvidiaServer = details.nvidiaServer;
         this.rawAppList = details.rawAppList;
+        // Gabs Remote: versões do host (decisão 0006)
+        this.gabsVersion = details.gabsVersion;
+        this.gabsMinApp = details.gabsMinApp;
     }
 
     @Override
