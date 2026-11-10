@@ -115,6 +115,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     // true depois que o host confirmou o grCursor pelo /gabs/cursor; antes disso o mouse segue relativo (como na 0.4.0)
     private boolean gabsCursorActive;
     private double gabsFallbackRestX, gabsFallbackRestY;
+    // Ponteiro nativo do Android (mouse e trackpad do teclado sem captura): ícone atual e rolagem de dois dedos
+    private int gabsPointerIconType = Integer.MIN_VALUE;
+    private final com.limelight.gabs.input.NativePointer.SwipeScroll gabsSwipe = new com.limelight.gabs.input.NativePointer.SwipeScroll();
     private Runnable gabsQuitHostApp;  // encerra o app no host (Voltar, Desconectar); veja SessionExit
     // Gabs Remote: reconexão automática (fase 3). Com gabsKeepPcReady o fim da tela não manda /cancel.
     private boolean gabsKeepPcReady;
@@ -581,9 +584,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     if (!gabsCursorActive) {
                         LimeLog.info("Gabs Remote: host confirmou o cursor no tablet");
                         gabsCursorActive = true;
+                        gabsEnableNativePointer();
                     }
                     gabsCursor.onHostShape(shape, android.os.SystemClock.uptimeMillis());
                     gabsRenderCursor();
+                    gabsApplyPointerIcon();
                 }
             }), Thread::sleep);
         }
@@ -836,6 +841,68 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
         gabsCursor.moveBy(dx, dy, android.os.SystemClock.uptimeMillis());
         gabsRenderCursor();
+    }
+
+    /**
+     * Host confirmou o cursor no tablet: o mouse e o trackpad do teclado deixam de ser capturados e o
+     * Android desenha o ponteiro dele (mesma velocidade e fluidez de fora do app); o app só troca o ícone.
+     */
+    private void gabsEnableNativePointer() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || cursorVisible) {
+            return;
+        }
+        cursorVisible = true;
+        if (grabbedInput) {
+            inputCaptureProvider.showCursor();
+        }
+        gabsPointerIconType = Integer.MIN_VALUE;
+        gabsApplyPointerIcon();
+    }
+
+    /** Ícone do ponteiro nativo conforme o formato do cursor do Windows. */
+    private void gabsApplyPointerIcon() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || gabsCursor == null || !gabsCursorActive || !cursorVisible) {
+            return;
+        }
+        int type = com.limelight.gabs.input.NativePointer.iconType(gabsCursor.nativeShape(android.os.SystemClock.uptimeMillis()));
+        if (type != gabsPointerIconType) {
+            gabsPointerIconType = type;
+            streamView.setPointerIcon(android.view.PointerIcon.getSystemIcon(this, type));
+        }
+    }
+
+    /** Ponteiro nativo mexeu (nx, ny normalizados na imagem): some o desenho do app e acorda o ícone. */
+    private void gabsNativePointerMoved(float nx, float ny) {
+        long now = android.os.SystemClock.uptimeMillis();
+        boolean wasHidden = gabsCursor.nativeShape(now) == com.limelight.gabs.input.CursorShape.HIDDEN;
+        gabsCursor.onNativePointer(nx, ny, now);
+        gabsRenderCursor();
+        gabsApplyPointerIcon();
+        if (wasHidden && gabsCursor.nativeShape(now) != com.limelight.gabs.input.CursorShape.HIDDEN) {
+            // Se o host continuar escondendo depois da carência, o ícone some de novo.
+            streamView.postDelayed(this::gabsApplyPointerIcon, com.limelight.gabs.input.LocalCursor.WAKE_GRACE_MS + 10);
+        }
+    }
+
+    /**
+     * Android 14+, trackpad sem captura: dois dedos chegam como um "dedo falso" classificado; vira
+     * rolagem no PC. Três ou quatro dedos e pinça ficam com o sistema (não mexem o cursor do PC).
+     */
+    @TargetApi(34)
+    private boolean gabsHandleTouchpadGesture(MotionEvent event) {
+        int classification = event.getClassification();
+        if (classification == MotionEvent.CLASSIFICATION_TWO_FINGER_SWIPE) {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                gabsSwipe.start(event.getX(), event.getY());
+            } else if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+                int[] d = gabsSwipe.move(event.getX(), event.getY());
+                if (d[0] != 0) conn.sendMouseHighResScroll((short) d[0]);
+                if (d[1] != 0) conn.sendMouseHighResHScroll((short) d[1]);
+            }
+            return true;
+        }
+        // 4 = CLASSIFICATION_MULTI_FINGER_SWIPE (três ou quatro dedos), que não é pública no SDK
+        return classification == 4 || classification == MotionEvent.CLASSIFICATION_PINCH;
     }
 
     /** Trackpad da tela: deslocamento do dedo em pixels da tela; 1 para 1 com a imagem como aparece (zoom incluído). */
@@ -1835,6 +1902,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             // we will need to show it again.
             if (cursorVisible) {
                 inputCaptureProvider.showCursor();
+                gabsPointerIconType = Integer.MIN_VALUE; // o provider voltou o ícone ao padrão
+                gabsApplyPointerIcon(); // Gabs Remote
             }
         }
         else {
@@ -2529,6 +2598,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     return true;
                 }
 
+                // Gabs Remote: trackpad sem captura (ponteiro nativo) no Android 14+: gestos de vários dedos
+                if (gabsCursor != null && gabsCursorActive && Build.VERSION.SDK_INT >= 34 && gabsHandleTouchpadGesture(event)) {
+                    return true;
+                }
+
                 // Gabs Remote: trackpad do teclado capturado = dedos crus; os gestos ficam com TouchpadGestures
                 if (event.getSource() == InputDevice.SOURCE_TOUCHPAD && inputCaptureProvider.eventHasRelativeMouseAxes(event)) {
                     gabsHandleTouchpad(event);
@@ -2891,6 +2965,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         eventY = Math.min(Math.max(eventY, 0), streamView.getHeight());
 
         conn.sendMousePosition((short)eventX, (short)eventY, (short)streamView.getWidth(), (short)streamView.getHeight());
+
+        if (gabsCursor != null && gabsCursorActive && streamView.getWidth() > 0 && streamView.getHeight() > 0 &&
+                event.getToolType(0) != MotionEvent.TOOL_TYPE_STYLUS && event.getToolType(0) != MotionEvent.TOOL_TYPE_ERASER) {
+            gabsNativePointerMoved(eventX / streamView.getWidth(), eventY / streamView.getHeight()); // Gabs Remote
+        }
     }
 
     @Override

@@ -110,6 +110,29 @@ public final class LocalCursor {
         mouseActive = false;
     }
 
+    /**
+     * Mouse ou trackpad do teclado sem captura: o Android move e desenha o ponteiro dele
+     * ({@link NativePointer}); aqui só acompanha a posição (o trackpad da tela continua dali) e
+     * acorda o formato se o host estava escondendo o cursor.
+     *
+     * @param nx posição normalizada (0 a 1) na imagem
+     * @param ny posição normalizada (0 a 1) na imagem
+     */
+    public void onNativePointer(float nx, float ny, long nowMs) {
+        onDirectInput(nx, ny);
+        if (hostShape == CursorShape.HIDDEN && wakeAtMs < hiddenAtMs) {
+            wakeAtMs = nowMs;
+        }
+    }
+
+    /** Formato do ponteiro nativo: o do host, ou o último visível durante a carência depois de mexer. */
+    public CursorShape nativeShape(long nowMs) {
+        if (hostShape == CursorShape.HIDDEN && nowMs - wakeAtMs < WAKE_GRACE_MS) {
+            return lastVisibleShape;
+        }
+        return hostShape;
+    }
+
     /** Formato novo contado pelo host. */
     public void onHostShape(CursorShape shape, long nowMs) {
         if (shape == CursorShape.HIDDEN) {

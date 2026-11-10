@@ -15,9 +15,9 @@
     <string name="gr_windows_scale_keep">Keep current</string>
     <string name="gr_title_trackpad_rotation">Keyboard trackpad rotation</string>
     <string name="gr_title_local_cursor">Cursor on the tablet</string>
-    <string name="gr_summary_local_cursor">Draws the mouse cursor on the tablet, with no delay (turn off for games that use the raw mouse)</string>
+    <string name="gr_summary_local_cursor">No delay: mouse and keyboard trackpad use the tablet pointer, and the on-screen trackpad draws the cursor in the app (turn off for games that use the raw mouse)</string>
     <string name="gr_title_cursor_speed">Cursor speed</string>
-    <string name="gr_summary_cursor_speed">100% = the cursor moves as much as your finger on the screen</string>
+    <string name="gr_summary_cursor_speed">On-screen trackpad: 100% = the cursor moves as much as your finger (mouse and keyboard trackpad follow the tablet speed)</string>
     <string name="gr_suffix_cursor_speed">%</string>
     <string name="gr_title_keyboard_layout">Windows keyboard layout during the session</string>
     <string name="gr_keyboard_layout_keep">Keep current</string>

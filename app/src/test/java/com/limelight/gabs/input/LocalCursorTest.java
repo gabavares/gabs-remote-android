@@ -193,6 +193,32 @@ public class LocalCursorTest {
     }
 
     @Test
+    public void ponteiroNativoEscondeODesenhoESegueAPosicao() {
+        cursor.moveBy(5, 5, 0);
+        cursor.onNativePointer(0.5f, 0.25f, 10);
+        assertFalse(cursor.visible(10)); // quem desenha é o Android
+        assertEquals(0.5f * 2799, cursor.x(), EPS);
+        assertEquals(0.25f * 1751, cursor.y(), EPS);
+        assertEquals(1, sent.size()); // a posição vai ao PC pelo caminho do upstream
+    }
+
+    @Test
+    public void formatoDoPonteiroNativoSegueOHost() {
+        cursor.onHostShape(CursorShape.IBEAM, 0);
+        assertEquals(CursorShape.IBEAM, cursor.nativeShape(0));
+    }
+
+    @Test
+    public void ponteiroNativoAcordaComOUltimoFormatoEDepoisValeOHost() {
+        cursor.onHostShape(CursorShape.HAND, 0);
+        cursor.onHostShape(CursorShape.HIDDEN, 100);
+        assertEquals(CursorShape.HIDDEN, cursor.nativeShape(200));
+        cursor.onNativePointer(0.5f, 0.5f, 1000);
+        assertEquals(CursorShape.HAND, cursor.nativeShape(1000));
+        assertEquals(CursorShape.HIDDEN, cursor.nativeShape(1000 + LocalCursor.WAKE_GRACE_MS));
+    }
+
+    @Test
     public void respostaDoHost() {
         CursorShape.Reply r = CursorShape.parseReply("7 ibeam");
         assertEquals(7, r.version);
