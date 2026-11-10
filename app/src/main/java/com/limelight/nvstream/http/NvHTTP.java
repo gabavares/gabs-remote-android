@@ -837,7 +837,12 @@ public class NvHTTP {
             if (!response.isSuccessful() || response.body() == null) {
                 throw new HostHttpResponseException(response.code(), response.message());
             }
-            return response.body().string();
+            String body = response.body().string();
+            // O "não encontrado" do Sunshine responde HTTP 200 com status_code="404" no XML (host anterior à 0.4.1).
+            if (body.contains("status_code=\"404\"")) {
+                throw new FileNotFoundException(url.toString());
+            }
+            return body;
         }
     }
 

@@ -52,7 +52,21 @@ public final class LocalCursor {
         return enabled ? "local" : null;
     }
 
-    /** Deslocamento de mouse (pixels do PC). */
+    /**
+     * Aceleração no lugar da do Windows ("Aumentar precisão do ponteiro"), que não age em posição
+     * absoluta: devagar = 1 para 1 (precisão); rápido = até {@link #ACCEL_MAX} vezes.
+     * Ganho = 0,8 + 1,2 × velocidade (pixels por ms), entre 1 e ACCEL_MAX.
+     */
+    static final float ACCEL_MAX = 3.5f;
+
+    static float gain(float speedPxPerMs) {
+        float g = 0.8f + 1.2f * speedPxPerMs;
+        return g < 1f ? 1f : (g > ACCEL_MAX ? ACCEL_MAX : g);
+    }
+
+    private long lastMoveMs = Long.MIN_VALUE / 2;
+
+    /** Deslocamento de mouse (pixels do PC, antes da aceleração). */
     public void moveBy(float dx, float dy, long nowMs) {
         if (dx == 0 && dy == 0) {
             return;
@@ -61,8 +75,12 @@ public final class LocalCursor {
             wakeAtMs = nowMs;
         }
         mouseActive = true;
-        x = clamp(x + dx, width - 1);
-        y = clamp(y + dy, height - 1);
+        // Intervalo entre 4 e 100 ms: eventos no mesmo ms não viram velocidade infinita; depois de parar, começa devagar.
+        long dt = Math.max(4, Math.min(100, nowMs - lastMoveMs));
+        lastMoveMs = nowMs;
+        float g = gain((float) Math.hypot(dx, dy) / dt);
+        x = clamp(x + dx * g, width - 1);
+        y = clamp(y + dy * g, height - 1);
         output.sendPosition(Math.round(x), Math.round(y), width, height);
     }
 

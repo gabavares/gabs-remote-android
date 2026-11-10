@@ -65,6 +65,27 @@ public class LocalCursorTest {
     }
 
     @Test
+    public void devagarAnda1Para1() {
+        cursor.moveBy(2, 0, 1000);
+        cursor.moveBy(2, 0, 1008); // 0,25 px/ms
+        assertEquals(1404, sent.get(1)[0]);
+    }
+
+    @Test
+    public void rapidoAcelera() {
+        cursor.moveBy(1, 0, 1000);
+        cursor.moveBy(16, 0, 1008); // 2 px/ms: ganho 3,2
+        assertEquals(Math.round(1401 + 16 * 3.2f), sent.get(1)[0]);
+    }
+
+    @Test
+    public void ganhoTemTeto() {
+        assertEquals(1f, LocalCursor.gain(0), 1e-6);
+        assertEquals(2f, LocalCursor.gain(1), 1e-6);
+        assertEquals(LocalCursor.ACCEL_MAX, LocalCursor.gain(50), 1e-6);
+    }
+
+    @Test
     public void semMovimentoNaoManda() {
         cursor.moveBy(0, 0, 0);
         assertTrue(sent.isEmpty());

@@ -112,6 +112,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private com.limelight.gabs.input.LocalCursor gabsCursor;
     private com.limelight.gabs.input.CursorOverlay gabsCursorOverlay;
     private com.limelight.gabs.input.CursorShapePoller gabsCursorPoller;
+    // true depois que o host confirmou o grCursor pelo /gabs/cursor; antes disso o mouse segue relativo (como na 0.4.0)
+    private boolean gabsCursorActive;
     private Runnable gabsQuitHostApp;  // encerra o app no host (Voltar, Desconectar); veja SessionExit
     // Gabs Remote: reconexão automática (fase 3). Com gabsKeepPcReady o fim da tela não manda /cancel.
     private boolean gabsKeepPcReady;
@@ -575,6 +577,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 }
             }, shape -> runOnUiThread(() -> {
                 if (gabsCursor != null) {
+                    if (!gabsCursorActive) {
+                        LimeLog.info("Gabs Remote: host confirmou o cursor no tablet");
+                        gabsCursorActive = true;
+                    }
                     gabsCursor.onHostShape(shape, android.os.SystemClock.uptimeMillis());
                     gabsRenderCursor();
                 }
@@ -815,6 +821,15 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void gabsMoveCursor(int dx, int dy) {
+        if (!gabsCursorActive) {
+            // Host ainda não confirmou (ou é anterior à 0.4.1): o cursor vem no vídeo e o Windows acelera.
+            if (prefConfig.absoluteMouseMode) {
+                conn.sendMouseMoveAsMousePosition((short) dx, (short) dy, (short) streamView.getWidth(), (short) streamView.getHeight());
+            } else {
+                conn.sendMouseMove((short) dx, (short) dy);
+            }
+            return;
+        }
         gabsCursor.moveBy(dx, dy, android.os.SystemClock.uptimeMillis());
         gabsRenderCursor();
     }
@@ -828,7 +843,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void gabsRenderCursor() {
-        if (gabsCursor != null && gabsCursorOverlay != null) {
+        if (gabsCursorActive && gabsCursor != null && gabsCursorOverlay != null) {
             gabsCursorOverlay.render(gabsCursor, streamView, android.os.SystemClock.uptimeMillis());
         }
     }
