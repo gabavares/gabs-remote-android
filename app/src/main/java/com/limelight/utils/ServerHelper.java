@@ -90,6 +90,26 @@ public class ServerHelper {
             Toast.makeText(parent, parent.getResources().getString(R.string.pair_pc_offline), Toast.LENGTH_SHORT).show();
             return;
         }
+        // Gabs Remote: avisa antes de conectar se app e PC estão em versões que não combinam (decisão 0006)
+        com.limelight.gabs.update.Compat.Result compat = com.limelight.gabs.update.Compat.check(
+                com.limelight.BuildConfig.VERSION_NAME, com.limelight.BuildConfig.GABS_MIN_HOST,
+                computer.gabsVersion, computer.gabsMinApp);
+        if (compat != com.limelight.gabs.update.Compat.Result.OK && !parent.isFinishing()) {
+            final Runnable connect = () -> parent.startActivity(createStartIntent(parent, app, computer, managerBinder));
+            android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(parent)
+                    .setTitle(R.string.gr_compat_title);
+            if (compat == com.limelight.gabs.update.Compat.Result.APP_TOO_OLD) {
+                b.setMessage(parent.getString(R.string.gr_compat_app_too_old, computer.gabsVersion))
+                        .setPositiveButton(R.string.gr_compat_update_app, (d, w) -> com.limelight.gabs.update.UpdateDialog.checkManually(parent))
+                        .setNegativeButton(R.string.gr_compat_connect_anyway, (d, w) -> connect.run());
+            } else {
+                b.setMessage(parent.getString(R.string.gr_compat_host_too_old, computer.gabsVersion, com.limelight.BuildConfig.GABS_MIN_HOST))
+                        .setPositiveButton(R.string.gr_compat_connect_anyway, (d, w) -> connect.run())
+                        .setNegativeButton(android.R.string.cancel, null);
+            }
+            b.show();
+            return;
+        }
         parent.startActivity(createStartIntent(parent, app, computer, managerBinder));
     }
 
