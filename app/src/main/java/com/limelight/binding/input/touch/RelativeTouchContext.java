@@ -104,6 +104,17 @@ public class RelativeTouchContext implements TouchContext {
         this.handler = new Handler(Looper.getMainLooper());
     }
 
+    /** Gabs Remote: com o cursor no tablet, o deslocamento vai para o cursor local (posição absoluta). */
+    public interface GabsMover {
+        void moveBy(int dx, int dy);
+    }
+
+    private GabsMover gabsMover;
+
+    public void setGabsMover(GabsMover mover) {
+        this.gabsMover = mover;
+    }
+
     @Override
     public int getActionIndex()
     {
@@ -271,7 +282,10 @@ public class RelativeTouchContext implements TouchContext {
                         conn.sendMouseHighResScroll((short)(deltaY * SCROLL_SPEED_FACTOR));
                     }
                 } else {
-                    if (prefConfig.absoluteMouseMode) {
+                    if (gabsMover != null) {
+                        gabsMover.moveBy(deltaX, deltaY); // Gabs Remote: cursor no tablet
+                    }
+                    else if (prefConfig.absoluteMouseMode) {
                         conn.sendMouseMoveAsMousePosition(
                                 (short) deltaX,
                                 (short) deltaY,

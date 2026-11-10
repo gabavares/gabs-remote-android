@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gabs Remote: cursor desenhado no tablet (grCursor=local). Vetor 32 x 32. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <path android:pathData="M16,6 A10,10 0 1,1 15.99,6" android:strokeColor="#FFDADADA" android:strokeWidth="4" />
+    <path android:pathData="M16,6 A10,10 0 0,1 26,16" android:strokeColor="#FF1E88E5" android:strokeWidth="4" android:strokeLineCap="round" />
+</vector>

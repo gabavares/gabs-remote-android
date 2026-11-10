@@ -797,6 +797,7 @@ public class NvHTTP {
             (context.streamConfig.getGrDisplay() == null ? "" : "&grDisplay=" + context.streamConfig.getGrDisplay()) +
             (context.streamConfig.getGrScale() == null ? "" : "&grScale=" + context.streamConfig.getGrScale()) +
             (context.streamConfig.getGrKeyboard() == null ? "" : "&grKeyboard=" + context.streamConfig.getGrKeyboard()) +
+            (context.streamConfig.getGrCursor() == null ? "" : "&grCursor=" + context.streamConfig.getGrCursor()) +
             MoonBridge.getLaunchUrlQueryParameters());
         if ((verb.equals("launch") && !getXmlString(xmlStr, "gamesession", true).equals("0") ||
                 (verb.equals("resume") && !getXmlString(xmlStr, "resume", true).equals("0")))) {
@@ -809,6 +810,39 @@ public class NvHTTP {
         }
     }
     
+    /**
+     * Gabs Remote: formato do cursor do PC (long poll do /gabs/cursor; o host responde em até 10 s).
+     *
+     * @param knownVersion versão que o app já tem (0 = responder na hora)
+     * @return "versão formato"; FileNotFoundException = host sem a rota
+     */
+    public String gabsCursor(long knownVersion) throws IOException {
+        if (gabsCursorClient == null) {
+            // Um cliente só (com o TLS já montado) para reaproveitar a conexão entre os pedidos.
+            gabsCursorClient = performAndroidTlsHack(httpClientLongConnectTimeout.newBuilder()
+                    .readTimeout(20, TimeUnit.SECONDS)
+                    .connectionPool(new ConnectionPool(1, 1, TimeUnit.MINUTES))
+                    .build());
+        }
+        HttpUrl url = getHttpsUrl(true).newBuilder()
+                .addPathSegments("gabs/cursor")
+                .addQueryParameter("v", Long.toString(knownVersion))
+                .addQueryParameter("uniqueid", uniqueId)
+                .build();
+        Request request = new Request.Builder().url(url).get().build();
+        try (Response response = gabsCursorClient.newCall(request).execute()) {
+            if (response.code() == 404) {
+                throw new FileNotFoundException(url.toString());
+            }
+            if (!response.isSuccessful() || response.body() == null) {
+                throw new HostHttpResponseException(response.code(), response.message());
+            }
+            return response.body().string();
+        }
+    }
+
+    private OkHttpClient gabsCursorClient;
+
     public boolean quitApp() throws IOException, XmlPullParserException {
         String xmlStr = openHttpConnectionToString(httpClientLongConnectNoReadTimeout, getHttpsUrl(true), "cancel");
         if (getXmlString(xmlStr, "cancel", true).equals("0")) {

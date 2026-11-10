@@ -108,6 +108,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private String gabsHostAddress;
     private int gabsTrackpadRotation = com.limelight.gabs.input.TrackpadRotation.DEFAULT;
     private com.limelight.gabs.input.TouchpadGestures gabsTouchpad;
+    // Gabs Remote: cursor desenhado no tablet (grCursor=local); null = desligado
+    private com.limelight.gabs.input.LocalCursor gabsCursor;
+    private com.limelight.gabs.input.CursorOverlay gabsCursorOverlay;
+    private com.limelight.gabs.input.CursorShapePoller gabsCursorPoller;
     private Runnable gabsQuitHostApp;  // encerra o app no host (Voltar, Desconectar); veja SessionExit
     // Gabs Remote: reconexão automática (fase 3). Com gabsKeepPcReady o fim da tela não manda /cancel.
     private boolean gabsKeepPcReady;
@@ -274,6 +278,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Listen for non-touch events on the game surface
         streamView = findViewById(R.id.surfaceView);
         streamView.setOnGenericMotionListener(this);
+        gabsSetupCursor(); // Gabs Remote
         streamView.setOnKeyListener(this);
         streamView.setInputCallbacks(this);
 
@@ -505,6 +510,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 .setGrDisplay(prefConfig.displayProfile.launchParam())
                 .setGrScale(prefConfig.displayProfile.windowsScaleParam(prefConfig.windowsScale))
                 .setGrKeyboard(com.limelight.gabs.input.KeyboardLayout.launchParam(prefConfig.keyboardLayout))
+                .setGrCursor(com.limelight.gabs.input.LocalCursor.launchParam(gabsCursor != null))
                 .setRefreshRate(chosenFrameRate)
                 .setApp(app)
                 .setBitrate(prefConfig.bitrate)
@@ -544,6 +550,36 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 LimeLog.warning("Gabs Remote: não foi possível encerrar o app no host: " + e);
             }
         }).start();
+        if (gabsCursor != null) {
+            // Gabs Remote: formato do cursor do PC (long poll do /gabs/cursor)
+            final NvHTTP[] gabsCursorHttp = new NvHTTP[1];
+            gabsCursorPoller = new com.limelight.gabs.input.CursorShapePoller(known -> {
+                try {
+                    if (gabsCursorHttp[0] == null) {
+                        gabsCursorHttp[0] = new NvHTTP(gabsAddress, httpsPort, uniqueId, gabsServerCert, gabsCrypto);
+                    }
+                    return gabsCursorHttp[0].gabsCursor(known);
+                } catch (java.io.FileNotFoundException e) {
+                    // Host anterior à 0.4.1: o cursor continua no vídeo; não desenha um segundo.
+                    LimeLog.info("Gabs Remote: host sem /gabs/cursor; o cursor fica no vídeo");
+                    runOnUiThread(() -> {
+                        if (gabsCursorOverlay != null) {
+                            gabsCursorOverlay.hide();
+                            gabsCursorOverlay = null;
+                        }
+                    });
+                    throw e;
+                } catch (java.io.IOException e) {
+                    gabsCursorHttp[0] = null;
+                    throw e;
+                }
+            }, shape -> runOnUiThread(() -> {
+                if (gabsCursor != null) {
+                    gabsCursor.onHostShape(shape, android.os.SystemClock.uptimeMillis());
+                    gabsRenderCursor();
+                }
+            }), Thread::sleep);
+        }
 
         InputManager inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
         inputManager.registerInputDeviceListener(keyboardTranslator, null);
@@ -764,6 +800,39 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     // ===== Gabs Remote: modos de toque, zoom local e menu da sessão =====
 
+    /** Cursor no tablet (preferência, ligada por padrão): o app desenha o cursor e manda a posição absoluta. */
+    private void gabsSetupCursor() {
+        boolean enabled = android.preference.PreferenceManager.getDefaultSharedPreferences(this)
+                .getBoolean(com.limelight.gabs.input.LocalCursor.PREF, com.limelight.gabs.input.LocalCursor.PREF_DEFAULT);
+        if (!enabled) {
+            return;
+        }
+        gabsCursor = new com.limelight.gabs.input.LocalCursor(prefConfig.width, prefConfig.height,
+                (x, y, w, h) -> conn.sendMousePosition((short) x, (short) y, (short) w, (short) h));
+        gabsCursorOverlay = new com.limelight.gabs.input.CursorOverlay(this, (android.view.ViewGroup) streamView.getParent());
+        // Rotação e mudança de tamanho: a posição é normalizada, só redesenha.
+        streamView.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> gabsRenderCursor());
+    }
+
+    private void gabsMoveCursor(int dx, int dy) {
+        gabsCursor.moveBy(dx, dy, android.os.SystemClock.uptimeMillis());
+        gabsRenderCursor();
+    }
+
+    /** Toque direto ou caneta em (nx, ny) normalizados: o Windows leva o cursor até lá e o esconde. */
+    private void gabsCursorDirect(float nx, float ny) {
+        if (gabsCursor != null) {
+            gabsCursor.onDirectInput(nx, ny);
+            gabsRenderCursor();
+        }
+    }
+
+    private void gabsRenderCursor() {
+        if (gabsCursor != null && gabsCursorOverlay != null) {
+            gabsCursorOverlay.render(gabsCursor, streamView, android.os.SystemClock.uptimeMillis());
+        }
+    }
+
     /** Contextos de toque do upstream: absoluto (Direto sem toque nativo no host) ou relativo (Trackpad). */
     private void gabsBuildTouchContexts() {
         for (int i = 0; i < touchContextMap.length; i++) {
@@ -771,9 +840,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 touchContextMap[i] = new AbsoluteTouchContext(conn, i, streamView);
             }
             else {
-                touchContextMap[i] = new RelativeTouchContext(conn, i,
+                RelativeTouchContext relative = new RelativeTouchContext(conn, i,
                         REFERENCE_HORIZ_RES, REFERENCE_VERT_RES,
                         streamView, prefConfig);
+                if (gabsCursor != null) {
+                    relative.setGabsMover(this::gabsMoveCursor);
+                }
+                touchContextMap[i] = relative;
             }
         }
     }
@@ -973,7 +1046,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             gabsTouchpad = new com.limelight.gabs.input.TouchpadGestures(gabsTrackpadRotation, new com.limelight.gabs.input.TouchpadGestures.Output() {
                 @Override
                 public void move(int dx, int dy) {
-                    if (prefConfig.absoluteMouseMode) {
+                    if (gabsCursor != null) {
+                        gabsMoveCursor(dx, dy);
+                    } else if (prefConfig.absoluteMouseMode) {
                         conn.sendMouseMoveAsMousePosition((short) dx, (short) dy, (short) streamView.getWidth(), (short) streamView.getHeight());
                     } else {
                         conn.sendMouseMove((short) dx, (short) dy);
@@ -2246,6 +2321,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         float[] normalizedCoords = getStreamViewRelativeNormalizedXY(view, event, pointerIndex);
         float[] normalizedContactArea = getStreamViewNormalizedContactArea(event, pointerIndex);
+        gabsCursorDirect(normalizedCoords[0], normalizedCoords[1]); // Gabs Remote
         return conn.sendPenEvent(eventType, toolType, penButtons,
                 normalizedCoords[0], normalizedCoords[1],
                 getPressureOrDistance(event, pointerIndex),
@@ -2311,6 +2387,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private boolean sendTouchEventForPointer(View view, MotionEvent event, byte eventType, int pointerIndex) {
         float[] normalizedCoords = getStreamViewRelativeNormalizedXY(view, event, pointerIndex);
         float[] normalizedContactArea = getStreamViewNormalizedContactArea(event, pointerIndex);
+        gabsCursorDirect(normalizedCoords[0], normalizedCoords[1]); // Gabs Remote
         return conn.sendTouchEvent(eventType, event.getPointerId(pointerIndex),
                 normalizedCoords[0], normalizedCoords[1],
                 getPressureOrDistance(event, pointerIndex),
@@ -2428,7 +2505,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     short deltaY = (short)inputCaptureProvider.getRelativeAxisY(event);
 
                     if (deltaX != 0 || deltaY != 0) {
-                        if (prefConfig.absoluteMouseMode) {
+                        if (gabsCursor != null) {
+                            gabsMoveCursor(deltaX, deltaY); // Gabs Remote: cursor no tablet
+                        }
+                        else if (prefConfig.absoluteMouseMode) {
                             // NB: view may be null, but we can unconditionally use streamView because we don't need to adjust
                             // relative axis deltas for the position of the streamView within the parent's coordinate system.
                             conn.sendMouseMoveAsMousePosition(deltaX, deltaY, (short)streamView.getWidth(), (short)streamView.getHeight());
@@ -2809,6 +2889,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private void stopConnection() {
+        if (gabsCursorPoller != null) {
+            gabsCursorPoller.stop(); // Gabs Remote
+        }
         if (connecting || connected) {
             connecting = connected = false;
             updatePipAutoEnter();
@@ -3005,6 +3088,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 gabsConnectedAtMs = System.currentTimeMillis(); // Gabs Remote
                 gabsShowPath(); // Gabs Remote
                 gabsRegisterNetworkCallback(); // Gabs Remote
+                if (gabsCursorPoller != null) { // Gabs Remote
+                    Thread t = new Thread(gabsCursorPoller, "Gabs cursor");
+                    t.setDaemon(true);
+                    t.start();
+                }
 
                 // Hide the mouse cursor now after a short delay.
                 // Doing it before dismissing the spinner seems to be undone

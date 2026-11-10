@@ -31,6 +31,7 @@ public class StreamConfiguration {
     private String grDisplay; // Gabs Remote: valor do parâmetro grDisplay (null = não manda)
     private String grScale; // Gabs Remote: escala do Windows na tela virtual (null = não manda)
     private String grKeyboard; // Gabs Remote: layout de teclado do Windows na sessão (null = não manda)
+    private String grCursor; // Gabs Remote: "local" = o app desenha o cursor (null = não manda)
 
     public static class Builder {
         private StreamConfiguration config = new StreamConfiguration();
@@ -69,6 +70,11 @@ public class StreamConfiguration {
         }
 
         // Gabs Remote: layout de teclado (KLID) que o host ativa durante a sessão
+        public StreamConfiguration.Builder setGrCursor(String grCursor) {
+            config.grCursor = grCursor;
+            return this;
+        }
+
         public StreamConfiguration.Builder setGrKeyboard(String grKeyboard) {
             config.grKeyboard = grKeyboard;
             return this;
@@ -193,6 +199,10 @@ public class StreamConfiguration {
 
     public String getGrKeyboard() {
         return grKeyboard;
+    }
+
+    public String getGrCursor() {
+        return grCursor;
     }
 
     public int getLaunchRefreshRate() {
