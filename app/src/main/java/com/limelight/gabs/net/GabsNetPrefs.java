@@ -9,7 +9,7 @@ public final class GabsNetPrefs {
     public static final String PRESENCE_URL = "gr_presence_url";
     public static final String PRESENCE_TOKEN = "gr_presence_token";
     public static final String FORCE_PATH = "gr_force_path";
-    public static final String DEFAULT_PRESENCE_URL = "https://remote.gabtavares.com/presenca.php";
+    public static final String DEFAULT_PRESENCE_URL = "https://gabtavares.com/gabs-remote/presenca.php";
 
     /** Quanto o poller espera pelos outros caminhos depois da primeira resposta. */
     public static final long GRACE_MS = 800;

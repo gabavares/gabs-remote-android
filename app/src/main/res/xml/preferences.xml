@@ -269,7 +269,7 @@
             android:key="gr_presence_url"
             android:title="@string/gr_title_presence_url"
             android:inputType="textUri"
-            android:defaultValue="https://remote.gabtavares.com/presenca.php" />
+            android:defaultValue="https://gabtavares.com/gabs-remote/presenca.php" />
         <EditTextPreference
             android:key="gr_presence_token"
             android:title="@string/gr_title_presence_token"
