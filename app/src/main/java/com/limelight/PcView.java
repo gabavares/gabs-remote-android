@@ -186,6 +186,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Gabs Remote: confere a Release uma vez por processo (decisão 0006)
+        com.limelight.gabs.update.UpdateDialog.checkOnStart(this);
+
         // Assume we're in the foreground when created to avoid a race
         // between binding to CMS and onResume()
         inForeground = true;

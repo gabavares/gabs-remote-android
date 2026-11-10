@@ -340,6 +340,10 @@
             android:title="@string/title_enable_post_stream_toast"
             android:summary="@string/summary_enable_post_stream_toast"
             android:defaultValue="false"/>
+        <!-- Gabs Remote: atualização (decisão 0006) -->
+        <Preference
+            android:key="gr_check_update"
+            android:title="@string/gr_update_title"/>
     </PreferenceCategory>
     <!--PreferenceCategory android:title="@string/category_help"
         android:key="category_help">

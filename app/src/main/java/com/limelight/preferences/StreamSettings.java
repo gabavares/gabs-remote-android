@@ -277,6 +277,16 @@ public class StreamSettings extends Activity {
             addPreferencesFromResource(R.xml.preferences);
             PreferenceScreen screen = getPreferenceScreen();
 
+            // Gabs Remote: "Procurar atualizações" com a versão instalada (decisão 0006)
+            android.preference.Preference grUpdate = findPreference("gr_check_update");
+            if (grUpdate != null) {
+                grUpdate.setSummary(getString(R.string.gr_update_summary, com.limelight.BuildConfig.VERSION_NAME));
+                grUpdate.setOnPreferenceClickListener(p -> {
+                    com.limelight.gabs.update.UpdateDialog.checkManually(getActivity());
+                    return true;
+                });
+            }
+
             // hide on-screen controls category on non touch screen devices
             if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
                 PreferenceCategory category =

@@ -1,0 +1,2 @@
+# Gabs Remote: fixture do manifesto assinado (bytes exatos)
+app/src/test/resources/update/** -text
