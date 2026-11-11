@@ -74,6 +74,7 @@ public class ServerHelper {
             candidates.add(c.toString());
         }
         intent.putStringArrayListExtra(Game.EXTRA_GR_CANDIDATES, candidates);
+        intent.putExtra(Game.EXTRA_GR_FEATURES, com.limelight.gabs.GabsFeatures.join(computer.gabsFeatures)); // Gabs Remote
         try {
             if (computer.serverCert != null) {
                 intent.putExtra(Game.EXTRA_SERVER_CERT, computer.serverCert.getEncoded());

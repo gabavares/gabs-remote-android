@@ -81,6 +81,8 @@ public class ComputerDetails {
     // Gabs Remote: versão do host e mínima do app que ele aceita (null em host anterior à fase 4)
     public String gabsVersion;
     public String gabsMinApp;
+    // Gabs Remote: o que o host sabe fazer (GabsFeatures; vazio em host anterior à fase 5)
+    public java.util.Set<String> gabsFeatures = java.util.Collections.emptySet();
     public long grRttMs;
 
     public ComputerDetails() {
@@ -158,6 +160,7 @@ public class ComputerDetails {
         // Gabs Remote: versões do host (decisão 0006)
         this.gabsVersion = details.gabsVersion;
         this.gabsMinApp = details.gabsMinApp;
+        this.gabsFeatures = details.gabsFeatures;
     }
 
     @Override

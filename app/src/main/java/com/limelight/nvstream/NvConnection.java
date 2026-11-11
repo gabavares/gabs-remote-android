@@ -68,6 +68,11 @@ public class NvConnection {
         this.isMonkey = ActivityManager.isUserAMonkey();
     }
     
+    // Gabs Remote: o microfone do tablet cifra os pacotes com a chave da sessão (decisão 0007)
+    public SecretKey gabsRiKey() {
+        return context.riKey;
+    }
+
     private static SecretKey generateRiAesKey() {
         try {
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");

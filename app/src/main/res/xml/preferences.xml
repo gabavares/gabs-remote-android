@@ -260,6 +260,12 @@
             android:title="@string/title_checkbox_host_audio"
             android:summary="@string/summary_checkbox_host_audio"
             android:defaultValue="false" />
+        <!-- Gabs Remote: microfone do tablet no PC (fase 5) -->
+        <CheckBoxPreference
+            android:key="gr_mic_on_connect"
+            android:title="@string/gr_title_mic_on_connect"
+            android:summary="@string/gr_summary_mic_on_connect"
+            android:defaultValue="false" />
     </PreferenceCategory>
     <!-- Gabs Remote: acesso de fora (fase 3, decisão 0005) -->
     <PreferenceCategory android:title="@string/gr_category_remote">

@@ -25,6 +25,14 @@ public class SessionMenu {
         void onSendAltTab();
         void onSendWin();
         void onDisconnect();
+        /** Liga ou silencia o microfone do tablet no PC (fase 5). */
+        void onToggleMic();
+    }
+
+    /** O que o host suporta e o estado atual (fase 5: itens que só aparecem com o host novo). */
+    public static final class Extras {
+        public boolean micAvailable;
+        public boolean micOn;
     }
 
     private static final int ID_KEYBOARD = 1;
@@ -32,6 +40,7 @@ public class SessionMenu {
     private static final int ID_RESET_ZOOM = 20;
     private static final int ID_LATENCY_CLICK = 30, ID_LATENCY_STAMP = 31;
     private static final int ID_ALT_TAB = 40, ID_WIN = 41;
+    private static final int ID_MIC = 50;
     private static final int ID_DISCONNECT = 90;
 
     private SessionMenu() {
@@ -40,7 +49,7 @@ public class SessionMenu {
     /**
      * Abre o menu numa âncora de 1 px no ponto (x, y) da tela (veja {@link MenuAnchor}).
      */
-    public static void show(Activity activity, float x, float y, TouchMode current, Listener listener) {
+    public static void show(Activity activity, float x, float y, TouchMode current, Extras extras, Listener listener) {
         ViewGroup root = activity.findViewById(android.R.id.content);
         int[] origin = new int[2];
         root.getLocationOnScreen(origin);
@@ -70,7 +79,10 @@ public class SessionMenu {
 
         menu.add(Menu.NONE, ID_ALT_TAB, 4, "Alt+Tab");
         menu.add(Menu.NONE, ID_WIN, 5, "Win");
-        menu.add(Menu.NONE, ID_DISCONNECT, 6, "Desconectar");
+        if (extras != null && extras.micAvailable) {
+            menu.add(Menu.NONE, ID_MIC, 6, extras.micOn ? "Silenciar microfone" : "Ligar microfone");
+        }
+        menu.add(Menu.NONE, ID_DISCONNECT, 9, "Desconectar");
 
         popup.setOnMenuItemClickListener((MenuItem item) -> {
             switch (item.getItemId()) {
@@ -83,6 +95,7 @@ public class SessionMenu {
                 case ID_LATENCY_STAMP: listener.onMeasureLatencyStamp(); return true;
                 case ID_ALT_TAB: listener.onSendAltTab(); return true;
                 case ID_WIN: listener.onSendWin(); return true;
+                case ID_MIC: listener.onToggleMic(); return true;
                 case ID_DISCONNECT: listener.onDisconnect(); return true;
                 default: return false;
             }

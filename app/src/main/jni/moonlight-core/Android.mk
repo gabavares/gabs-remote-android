@@ -45,6 +45,9 @@ LOCAL_SRC_FILES := moonlight-common-c/src/AudioStream.c \
                    minisdl.c \
 
 
+# Gabs Remote: codificador Opus do microfone do tablet (fase 5)
+LOCAL_SRC_FILES += gabsmic.c
+
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/moonlight-common-c/enet/include \
                     $(LOCAL_PATH)/moonlight-common-c/nanors/deps/obl \
                     $(LOCAL_PATH)/moonlight-common-c/nanors \

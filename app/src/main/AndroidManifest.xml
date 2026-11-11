@@ -17,6 +17,8 @@
 
     <!-- Gabs Remote: o app se atualiza pela Release (decisão 0006) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Gabs Remote: microfone do tablet no PC (fase 5) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <uses-feature
         android:name="android.hardware.touchscreen"

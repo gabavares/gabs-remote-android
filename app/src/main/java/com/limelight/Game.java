@@ -218,6 +218,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     public static final String EXTRA_GR_RTT = "GrRtt";
     public static final String EXTRA_GR_CANDIDATES = "GrCandidates";
     public static final String EXTRA_GR_RECONNECT_SINCE = "GrReconnectSince";
+    // Gabs Remote: o que o host sabe fazer (GabsFeatures) e o microfone na reconexão (fase 5)
+    public static final String EXTRA_GR_FEATURES = "GrFeatures";
+    public static final String EXTRA_GR_MIC_ON = "GrMicOn";
+    private static final int GABS_REQUEST_MIC = 4701;
+    private java.util.Set<String> gabsFeatures = java.util.Collections.emptySet();
+    private com.limelight.gabs.mic.MicController gabsMic;
+    // Microfone ligado quando a sessão foi para segundo plano: volta ligado na próxima sessão com o mesmo PC.
+    private static String sGabsMicResumeUuid;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -359,6 +367,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         String host = Game.this.getIntent().getStringExtra(EXTRA_HOST);
         gabsHostAddress = host; // Gabs Remote: o medidor de latência fala com o marcador neste endereço
+        gabsFeatures = com.limelight.gabs.GabsFeatures.parse(getIntent().getStringExtra(EXTRA_GR_FEATURES)); // Gabs Remote
         int port = Game.this.getIntent().getIntExtra(EXTRA_PORT, NvHTTP.DEFAULT_HTTP_PORT);
         int httpsPort = Game.this.getIntent().getIntExtra(EXTRA_HTTPS_PORT, 0); // 0 is treated as unknown
         int appId = Game.this.getIntent().getIntExtra(EXTRA_APP_ID, StreamConfiguration.INVALID_APP_ID);
@@ -703,6 +712,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     next.putExtra(EXTRA_GR_PATH, r.candidate.kind.name());
                     next.putExtra(EXTRA_GR_RTT, r.rttMs);
                     next.putExtra(EXTRA_GR_RECONNECT_SINCE, budgetStart);
+                    next.putExtra(EXTRA_GR_MIC_ON, gabsMic != null && gabsMic.isOn()); // fase 5: microfone volta como estava
                     gabsKeepPcReady = true; // decisão 0004: o PC continua pronto e a tela virtual é reaproveitada
                     // O Game é singleTask: com esta instância viva, startActivity cairia nela mesma
                     // (onNewIntent). Terminando antes, o Android cria uma instância nova com o Intent novo.
@@ -1187,7 +1197,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
     private void gabsShowSessionMenu() {
         LimeLog.info("Gabs menu: abrindo");
-        com.limelight.gabs.input.SessionMenu.show(this, gabsMenuX, gabsMenuY, gabsTouchMode, new com.limelight.gabs.input.SessionMenu.Listener() {
+        com.limelight.gabs.input.SessionMenu.Extras extras = new com.limelight.gabs.input.SessionMenu.Extras();
+        extras.micAvailable = gabsMic != null;
+        extras.micOn = gabsMic != null && gabsMic.isOn();
+        com.limelight.gabs.input.SessionMenu.show(this, gabsMenuX, gabsMenuY, gabsTouchMode, extras, new com.limelight.gabs.input.SessionMenu.Listener() {
             @Override public void onToggleKeyboard() { toggleKeyboard(); }
             @Override public void onTouchModeSelected(com.limelight.gabs.input.TouchMode mode) { gabsSetTouchMode(mode); }
             @Override public void onResetZoom() { gabsZoom.reset(); gabsApplyZoom(); }
@@ -1196,7 +1209,71 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             @Override public void onSendAltTab() { gabsSendKeyCombo((short) 0x12, (short) 0x09); }
             @Override public void onSendWin() { gabsSendKeyCombo((short) 0x5B); }
             @Override public void onDisconnect() { finish(); }
+            @Override public void onToggleMic() { gabsToggleMic(); }
         });
+    }
+
+    // ===== Gabs Remote: microfone do tablet no PC (fase 5, decisão 0007) =====
+
+    private boolean gabsHasMicPermission() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                || checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    /** Cria o controle do microfone quando a sessão começa (só se o host anuncia "mic"). */
+    private void gabsStartMic() {
+        if (gabsMic != null || conn == null || !gabsFeatures.contains(com.limelight.gabs.GabsFeatures.MIC)) {
+            return;
+        }
+        String uuid = getIntent().getStringExtra(EXTRA_PC_UUID);
+        boolean resume = uuid != null && uuid.equals(sGabsMicResumeUuid);
+        sGabsMicResumeUuid = null;
+        boolean onAtConnect = getIntent().hasExtra(EXTRA_GR_MIC_ON)
+                ? getIntent().getBooleanExtra(EXTRA_GR_MIC_ON, false)
+                : resume || android.preference.PreferenceManager.getDefaultSharedPreferences(this).getBoolean("gr_mic_on_connect", false);
+        boolean askPermission = onAtConnect && !gabsHasMicPermission();
+        if (askPermission) {
+            onAtConnect = false;
+        }
+        com.limelight.gabs.mic.MicSender sender = new com.limelight.gabs.mic.MicSender(
+                com.limelight.gabs.mic.MicSender.udp(gabsHostAddress), conn.gabsRiKey());
+        com.limelight.gabs.mic.MicCapture capture = new com.limelight.gabs.mic.MicCapture(sender,
+                msg -> runOnUiThread(() -> Toast.makeText(Game.this, msg, Toast.LENGTH_LONG).show()));
+        gabsMic = new com.limelight.gabs.mic.MicController(capture, sender, onAtConnect);
+        if (onAtConnect) {
+            Toast.makeText(this, "Microfone do tablet ligado no PC", Toast.LENGTH_SHORT).show();
+        }
+        if (askPermission) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, GABS_REQUEST_MIC);
+        }
+    }
+
+    private void gabsToggleMic() {
+        if (gabsMic == null) {
+            return;
+        }
+        if (!gabsMic.isOn() && !gabsHasMicPermission()) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, GABS_REQUEST_MIC);
+            return;
+        }
+        gabsMic.toggle();
+        Toast.makeText(this, gabsMic.isOn() ? "Microfone do tablet ligado no PC" : "Microfone do tablet silenciado", Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != GABS_REQUEST_MIC || gabsMic == null) {
+            return;
+        }
+        if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            if (!gabsMic.isOn()) {
+                gabsMic.toggle();
+            }
+            Toast.makeText(this, "Microfone do tablet ligado no PC", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Sem permissão do microfone", Toast.LENGTH_LONG).show();
+        }
     }
 
     /** Medidor de latência (docs/latencia.md): precisa do marcador aberto no PC. */
@@ -1815,6 +1892,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Gabs Remote: uma medição de latência não sobrevive à sessão
         if (gabsLatency != null) {
             gabsLatency.cancel();
+        }
+        if (gabsMic != null) {
+            // Gabs Remote: em segundo plano o microfone para (decisão 0007); voltando, religa se estava ligado
+            sGabsMicResumeUuid = !isFinishing() && gabsMic.isOn() ? getIntent().getStringExtra(EXTRA_PC_UUID) : null;
+            gabsMic.onBackground();
         }
 
         SpinnerDialog.closeDialogs(this);
@@ -3010,6 +3092,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (gabsCursorPoller != null) {
             gabsCursorPoller.stop(); // Gabs Remote
         }
+        if (gabsMic != null) {
+            gabsMic.close(); // Gabs Remote: sem sessão, o microfone para (o ponto verde some)
+        }
         if (connecting || connected) {
             connecting = connected = false;
             updatePipAutoEnter();
@@ -3206,6 +3291,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 gabsConnectedAtMs = System.currentTimeMillis(); // Gabs Remote
                 gabsShowPath(); // Gabs Remote
                 gabsRegisterNetworkCallback(); // Gabs Remote
+                gabsStartMic(); // Gabs Remote
                 if (gabsCursorPoller != null) { // Gabs Remote
                     Thread t = new Thread(gabsCursorPoller, "Gabs cursor");
                     t.setDaemon(true);

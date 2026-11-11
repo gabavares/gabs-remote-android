@@ -64,4 +64,7 @@
     <string name="gr_compat_host_too_old">The PC is on version %1$s and this app needs %2$s. The PC updates by itself when there is no session, or from the panel: Check for updates.</string>
     <string name="gr_compat_update_app">Update the app</string>
     <string name="gr_compat_connect_anyway">Connect anyway</string>
+    <!-- Phase 5: microphone -->
+    <string name="gr_title_mic_on_connect">Microphone on when connecting</string>
+    <string name="gr_summary_mic_on_connect">Turn the tablet microphone on in the PC at every session (otherwise it starts muted; use the session menu)</string>
 </resources>

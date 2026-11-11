@@ -61,4 +61,7 @@
     <string name="gr_compat_host_too_old">O PC está na versão %1$s e este app precisa da %2$s. O PC se atualiza sozinho quando não houver sessão, ou pelo painel: Procurar atualizações.</string>
     <string name="gr_compat_update_app">Atualizar o app</string>
     <string name="gr_compat_connect_anyway">Conectar mesmo assim</string>
+    <!-- Fase 5: microfone -->
+    <string name="gr_title_mic_on_connect">Microfone ligado ao conectar</string>
+    <string name="gr_summary_mic_on_connect">Liga o microfone do tablet no PC em toda sessão (senão começa mudo; use o menu da sessão)</string>
 </resources>

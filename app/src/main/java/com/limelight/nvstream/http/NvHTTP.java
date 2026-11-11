@@ -376,6 +376,8 @@ public class NvHTTP {
         // Gabs Remote: versão do host e mínima do app (decisão 0006); null em host anterior à fase 4
         details.gabsVersion = getXmlString(serverInfo, "GabsVersion", false);
         details.gabsMinApp = getXmlString(serverInfo, "GabsMinApp", false);
+        // Gabs Remote: mic, clipboard, files, actions (fase 5)
+        details.gabsFeatures = com.limelight.gabs.GabsFeatures.parse(getXmlString(serverInfo, "GabsFeatures", false));
 
         // FIXME: Do we want to use the current port?
         details.localAddress = makeTuple(getXmlString(serverInfo, "LocalIP", false), baseUrlHttp.port());
